@@ -243,6 +243,60 @@
       if (CFG.noAds && u.data.advertisement) {
         u.data.advertisement.isNoAdsPurchased = true;
       }
+      /*
+       * 诊断：把 UI 环境状态写进存档顶层（Json.NET 会忽略未知字段，安全）。
+       * 存档改写是唯一确认可用的落盘通道 —— 探针写文件/storage 都不通，
+       * 但这个值会跟着游戏自己的存档写盘，能用 adb 读出来。
+       */
+      /*
+       * 诊断必须写进**游戏已知的字段** —— 写在外层未知字段会被
+       * .NET 反序列化丢掉（实测 __hmDiag 落不了盘）。
+       * previousVersion 是存档里已有的字符串字段，游戏只读不写。
+       */
+      /*
+       * 环境能力探针 —— 小游戏环境没有 DOM（document 是 adapter 伪造的，
+       * createElement 只支持 canvas/image），所以 HTML 面板根本不渲染。
+       * 这里把真实能力写进存档的已知字段（能落盘，实测有效），
+       * 用来确认该用 canvas 渲染还是 HTML 渲染。
+       */
+      try {
+        var env = [];
+        try { env.push('doc=' + (typeof G.document)); } catch (e) {}
+        try {
+          var d = G.document;
+          if (d) {
+            env.push('body=' + (d.body ? 1 : 0));
+            try {
+              var el = d.createElement('div');
+              env.push('div=' + (el ? (el.nodeType ? 'real' : 'fake') : 'null'));
+            } catch (e) { env.push('div=ERR'); }
+            try {
+              var cv = d.createElement('canvas');
+              env.push('cv=' + (cv && cv.getContext ? 'ctx' : 'none'));
+            } catch (e) { env.push('cv=ERR'); }
+          }
+        } catch (e) { env.push('dERR'); }
+        try {
+          var w = G.wx || (G.GameGlobal && G.GameGlobal.wx);
+          env.push('wx=' + (w ? 1 : 0));
+          env.push('wc=' + (w && w.createCanvas ? 1 : 0));
+          env.push('ts=' + (w && w.onTouchStart ? 1 : 0));
+          env.push('sys=' + (w && w.getSystemInfoSync ? 1 : 0));
+        } catch (e) { env.push('wERR'); }
+        try {
+          env.push('gg=' + (G.GameGlobal ? 1 : 0));
+          env.push('gc=' + (G.GameGlobal && G.GameGlobal.canvas ? 1 : 0));
+        } catch (e) {}
+        try {
+          var sc = G.GameGlobal && G.GameGlobal.canvas;
+          if (sc && sc.getContext) {
+            try { var g1 = sc.getContext('webgl') || sc.getContext('experimental-webgl'); env.push('gl=' + (g1 ? 1 : 0)); } catch (e) { env.push('gl=ERR'); }
+            try { var g2 = sc.getContext('2d'); env.push('2d=' + (g2 ? 1 : 0)); } catch (e) { env.push('2d=ERR'); }
+          }
+        } catch (e) {}
+        u.data.previousVersion = env.join('|').slice(0, 500);
+      } catch (e) {}
+
       return repack(value, u.outer, u.data, u.depth);
     } catch (e) {
       return value;
@@ -471,8 +525,65 @@
       }
     } catch (e) {}
     G.__hmHarvestSwept = seen;
+
+    /*
+     * 环境探针：写进**独立的 storage key**。
+     * 之前写 previousVersion 被游戏自己的序列化覆盖了 ——
+     * 游戏每次写盘都重置那个字段。
+     * 独立 key 不在 .NET 对象里，不会被覆盖，能稳定落盘。
+     */
+    try {
+      var w = getWx();
+      if (w && w.setStorageSync) {
+        w.setStorageSync('__hmEnv__', buildEnvProbe());
+      }
+    } catch (e) {}
+
     return changed;
   };
+
+  /** 环境能力探针 */
+  function buildEnvProbe() {
+    var env = [];
+    try { env.push('doc=' + (typeof G.document)); } catch (e) {}
+    try {
+      var d = G.document;
+      if (d) {
+        env.push('body=' + (d.body ? 1 : 0));
+        try {
+          var el = d.createElement('div');
+          env.push('div=' + (el ? (el.nodeType ? 'real' : 'fake') : 'null'));
+        } catch (e) { env.push('div=ERR'); }
+        try {
+          var cv = d.createElement('canvas');
+          env.push('cv=' + (cv && cv.getContext ? 'ctx' : 'none'));
+        } catch (e) { env.push('cv=ERR'); }
+      }
+    } catch (e) { env.push('dERR'); }
+    try {
+      var w = G.wx || (G.GameGlobal && G.GameGlobal.wx);
+      env.push('wx=' + (w ? 1 : 0));
+      env.push('wc=' + (w && w.createCanvas ? 1 : 0));
+      env.push('ts=' + (w && w.onTouchStart ? 1 : 0));
+    } catch (e) { env.push('wERR'); }
+    try {
+      env.push('gg=' + (G.GameGlobal ? 1 : 0));
+      env.push('gc=' + (G.GameGlobal && G.GameGlobal.canvas ? 1 : 0));
+    } catch (e) {}
+    try {
+      var sc = G.GameGlobal && G.GameGlobal.canvas;
+      if (sc && sc.getContext) {
+        try { var g1 = sc.getContext('webgl') || sc.getContext('experimental-webgl'); env.push('gl=' + (g1 ? 1 : 0)); } catch (e) { env.push('gl=ERR'); }
+        try { var g2 = sc.getContext('2d'); env.push('2d=' + (g2 ? 1 : 0)); } catch (e) { env.push('2d=ERR'); }
+      }
+    } catch (e) {}
+    try {
+      env.push('uiR=' + (typeof G.__hmUnityUIReady === 'function' && G.__hmUnityUIReady() ? 1 : 0));
+      env.push('lay=' + (G.__hmUnityLayout ? 1 : 0));
+      env.push('top=' + (G.__hmTopError || '-'));
+    } catch (e) {}
+    return env.join('|').slice(0, 500);
+  }
 
   /* 首次接管。等游戏把 SDK 初始化完再扫，命中率更高。 */
   function boot() {
