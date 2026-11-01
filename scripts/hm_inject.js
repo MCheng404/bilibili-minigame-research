@@ -95,6 +95,40 @@ try {
       [0, 200, 600, 1200, 2500, 4000, 6000, 9000, 14000, 20000].forEach(function (ms) {
         setTimeout(function () { try { tryLoad(); } catch (e) {} }, ms);
       });
+
+      /*
+       * 诊断：把判定状态写进游戏自己的 files 目录。
+       * 用 wx.getFileSystemManager 写 —— 那是宿主提供的落盘通道，
+       * 比 console.log 可靠（宿主不一定把 console 转发到 logcat）。
+       */
+      function probe(tag) {
+        try {
+          var st = [
+            tag,
+            'unity=' + (GG.__hmUnity ? 1 : 0),
+            'gg=' + (GG.GameGlobal ? 1 : 0),
+            'cmge=' + ((GG.GameGlobal && GG.GameGlobal.__cmgeSubpackages) ?
+              GG.GameGlobal.__cmgeSubpackages.length : -1),
+            'ns=' + ((GG.GameGlobal && GG.GameGlobal.unityNamespace) ? 1 : 0),
+            'mgr=' + ((GG.GameGlobal && GG.GameGlobal.manager) ? 1 : 0),
+            'bridge=' + ((typeof GG.__hmBridge === 'function') ? 1 : 0),
+            'loaded=' + (GG.__hmUnityLoaded ? 1 : 0),
+            'mods=' + (GG.__hmModules ? Object.keys(GG.__hmModules).join('|') : ''),
+            'err=' + (GG.__hmUnityErr || '')
+          ].join(' ');
+          var w = GG.wx || (GG.GameGlobal && GG.GameGlobal.wx);
+          if (w && w.getFileSystemManager) {
+            w.getFileSystemManager().writeFileSync(
+              GG.__hmProbePath || 'hm_probe.txt', st);
+          }
+        } catch (e) {
+          try { GG.__hmProbeErr = String(e); } catch (e2) {}
+        }
+      }
+      probe('init');
+      setTimeout(function () { probe('t3s'); }, 3000);
+      setTimeout(function () { probe('t10s'); }, 10000);
+      setTimeout(function () { probe('t20s'); }, 20000);
     })();
     // ===== /HM UNITY INLINE =====
     // ===== HM COMMON INLINE =====
