@@ -14,7 +14,8 @@
 | [01-原理与链路.md](./01-原理与链路.md) | 引擎结构、bundle 作用域分析、为什么对象图 BFS 走不通、源码改写的落点 |
 | [02-字段与上限.md](./02-字段与上限.md) | 完整字段清单、每个字段的上限来源、危险字段与原因 |
 | [03-部署与调试.md](./03-部署与调试.md) | 从编译到生效的完整步骤、常用调试命令 |
-| [04-踩坑记录.md](./04-踩坑记录.md) | 10 个实际踩过的坑与判断依据 |
+| [04-踩坑记录.md](./04-踩坑记录.md) | 21 个实际踩过的坑与判断依据 |
+| [05-配套App.md](./05-配套App.md) | LSPosed 模块的配置界面：Miuix UI、作用域推荐、构建要点 |
 
 ## 资源
 
@@ -25,6 +26,7 @@
 | `dump/screenshot_888888.png` | 修改生效后的界面截图 |
 | `src/nativelib/hmshim.c` | 注入库源码（定位引擎、hook、源码改写、探针注入） |
 | `src/zyginject/` | Zygisk 注入模块（`zygisk_main.cpp` + 官方 `zygisk.hpp` + `pack.py`），与 LSPosed 方案二选一 |
+| `src/app/` | LSPosed 模块的配置界面（`MainActivity.kt` + 构建配置 + 清单 + 作用域数组） |
 | `src/nativelib/inj.js` | 游戏内探针 + 悬浮面板源码 |
 | `src/nativelib/inj_gen.h` | 由 `inj.js` 自动生成的 C 字符串头文件 |
 | `src/build_inj.py` | `inj.js` → `inj_gen.h` 转换脚本 |

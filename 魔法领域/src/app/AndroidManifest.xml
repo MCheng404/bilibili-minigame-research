@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="false"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.HM">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.HM">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="@string/module_desc" />
+        <!-- 93 = LSPosed 引入 xposedscope 的 API 版本 -->
+        <meta-data
+            android:name="xposedminversion"
+            android:value="93" />
+        <!--
+          推荐作用域：LSPosed 读取此数组后会在作用域列表里把哔哩哔哩
+          标为推荐并默认勾选，免去用户手动翻找。
+        -->
+        <meta-data
+            android:name="xposedscope"
+            android:resource="@array/xposedscope" />
+    </application>
+
+</manifest>

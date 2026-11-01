@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      LSPosed 的作用域推荐列表。
+      LSPosed 管理器读取 xposedscope 后，会在作用域页面把这里列出的应用
+      标记为推荐并默认勾选，用户不用自己去列表里翻。
+      tv.danmaku.bili 即哔哩哔哩，小游戏跑在它的 :web 子进程里，
+      作用域只需要勾主包。
+    -->
+    <string-array name="xposedscope" translatable="false">
+        <item>tv.danmaku.bili</item>
+    </string-array>
+</resources>
