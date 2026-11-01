@@ -1,0 +1,6 @@
+id=hmzygisk
+name=HM Zygisk Injector
+version=1.0
+versionCode=1
+author=MCheng404
+description=通过 Zygisk 把 libhmshim.so 注入 tv.danmaku.bili:web，用于 B 站小游戏数值研究。与 LSPosed 方案共用同一个 .so，可二选一。

@@ -2,6 +2,8 @@
 *.so
 *.o
 *.a
+# 例外：Zygisk 模块的库需要随模块一起分发，源码在 src/zyginject/zygisk_main.cpp
+!魔法领域/src/zyginject/hmzygisk/zygisk/arm64-v8a.so
 
 # Python
 __pycache__/

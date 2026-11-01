@@ -24,6 +24,7 @@
 | `dump/syms.txt` | `libMiniEngine.so` 的完整动态符号表（49,556 条，`readelf --dyn-syms`） |
 | `dump/screenshot_888888.png` | 修改生效后的界面截图 |
 | `src/nativelib/hmshim.c` | 注入库源码（定位引擎、hook、源码改写、探针注入） |
+| `src/zyginject/` | Zygisk 注入模块（`zygisk_main.cpp` + 官方 `zygisk.hpp` + `pack.py`），与 LSPosed 方案二选一 |
 | `src/nativelib/inj.js` | 游戏内探针 + 悬浮面板源码 |
 | `src/nativelib/inj_gen.h` | 由 `inj.js` 自动生成的 C 字符串头文件 |
 | `src/build_inj.py` | `inj.js` → `inj_gen.h` 转换脚本 |

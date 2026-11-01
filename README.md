@@ -146,8 +146,12 @@ a.hero_upCost.find(e => e.level == level).slice
 
 ```
 ┌──────────────────────────────────────────────┐
-│ LSPosed 模块（Java）                          │
-│  在 :web 进程启动时 System.load 自研 .so       │
+│ 注入层（二选一，可共存）                        │
+│  A. LSPosed 模块（Java）                       │
+│     handleLoadPackage → System.load(.so)      │
+│  B. Zygisk 模块（C++）                         │
+│     postAppSpecialize → dlopen(.so)           │
+│  两者共用同一个 .so，dlopen 同路径会去重         │
 └────────────────┬─────────────────────────────┘
                  ↓
 ┌──────────────────────────────────────────────┐
