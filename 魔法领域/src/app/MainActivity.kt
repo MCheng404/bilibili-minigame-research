@@ -87,12 +87,21 @@ private fun HomeScreen() {
     var loading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableIntStateOf(0) }
 
+    // root 授权状态：决定「更新脚本」能不能一键完成
+    var rootInfo by remember { mutableStateOf<ScriptRepo.RootInfo?>(null) }
+    val scope = rememberCoroutineScope()
+
     LaunchedEffect(refreshKey) {
         loading = true
         // 先用缓存顶上，再等远端结果替换掉
         catalog = CatalogRepo.cached(context) ?: catalog
         catalog = CatalogRepo.load(context)
         loading = false
+    }
+
+    // 启动时顺手检测一次 root 授权
+    LaunchedEffect(Unit) {
+        rootInfo = ScriptRepo.checkRoot()
     }
 
     Scaffold(
@@ -124,7 +133,14 @@ private fun HomeScreen() {
                 .padding(top = 8.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            StatusCard(catalog = catalog, loading = loading)
+            StatusCard(
+                catalog = catalog,
+                loading = loading,
+                rootInfo = rootInfo,
+                onCheckRoot = {
+                    scope.launch { rootInfo = ScriptRepo.checkRoot() }
+                },
+            )
             SmallTitle("支持的游戏", insideMargin = TITLE_PADDING)
             val games = catalog?.games.orEmpty()
             if (games.isEmpty()) {
@@ -145,7 +161,12 @@ private fun HomeScreen() {
 }
 
 @Composable
-private fun StatusCard(catalog: Catalog?, loading: Boolean) {
+private fun StatusCard(
+    catalog: Catalog?,
+    loading: Boolean,
+    rootInfo: ScriptRepo.RootInfo?,
+    onCheckRoot: () -> Unit,
+) {
     val cs = MiuixTheme.colorScheme
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -189,6 +210,31 @@ private fun StatusCard(catalog: Catalog?, loading: Boolean) {
         InfoRow("目标应用", "哔哩哔哩（tv.danmaku.bili）")
         InfoRow("目标进程", "tv.danmaku.bili:web")
         InfoRow("作用域", "只需勾选主包，无需勾选子进程")
+        InfoRow("脚本同步", "游戏进程自动完成（无需 root）")
+        InfoRow(
+            label = "root 权限",
+            value = when (rootInfo?.status) {
+                ScriptRepo.RootStatus.GRANTED -> "已授权（" + (rootInfo.suPath ?: "su") + "）"
+                ScriptRepo.RootStatus.DENIED -> "未授权"
+                ScriptRepo.RootStatus.NO_MANAGER -> "未检测到管理器"
+                else -> "检测中…"
+            },
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            Text(
+                text = "检测权限",
+                modifier = Modifier
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(Color(0xFF3D86D8).copy(alpha = 0.14f))
+                    .clickable { onCheckRoot() }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                fontSize = 13.sp,
+                color = Color(0xFF3D86D8),
+            )
+        }
         InfoRow(
             label = "游戏目录",
             value = when {
@@ -232,6 +278,7 @@ private fun GameCard(game: GameEntry) {
     var scriptState by remember(game.id) { mutableStateOf("") }
     var scriptCmd by remember(game.id) { mutableStateOf("") }
     var scriptBusy by remember(game.id) { mutableStateOf(false) }
+    var rootState by remember(game.id) { mutableStateOf<ScriptRepo.RootStatus?>(null) }
     Card(
         modifier = Modifier.fillMaxWidth(),
         insideMargin = CARD_PADDING,
@@ -320,7 +367,7 @@ private fun GameCard(game: GameEntry) {
                     // 长按可复制：部署失败时把命令和错误一起复制走
                     SelectionContainer {
                         Text(
-                            text = if (scriptState.isBlank()) "仓库版本" else scriptState,
+                            text = if (scriptState.isBlank()) "模块自动同步中" else scriptState,
                             fontSize = 13.sp,
                             color = if (scriptState.startsWith("已部署")) cs.onSurface else Color(0xFFE08A6B),
                             maxLines = 3,
@@ -338,36 +385,60 @@ private fun GameCard(game: GameEntry) {
                     }
                 }
                 Spacer(Modifier.width(10.dp))
+                // 按钮按 root 授权状态切换：先检测 → 未授权就去授权 → 已授权才更新
+                val btnText = when {
+                    scriptBusy -> "处理中…"
+                    rootState == ScriptRepo.RootStatus.DENIED -> "去授权"
+                    rootState == ScriptRepo.RootStatus.NO_MANAGER -> "去授权"
+                    else -> "立即同步"
+                }
                 Text(
-                    text = if (scriptBusy) "处理中…" else "更新脚本",
+                    text = btnText,
                     modifier = Modifier
                         .clip(RoundedCornerShape(9.dp))
                         .background(game.accent.copy(alpha = 0.14f))
                         .clickable(enabled = !scriptBusy) {
-                            scriptBusy = true
-                            scriptState = ""
-                            scope.launch {
-                                val r = ScriptRepo.download(context, game.scriptUrl)
-                                val msg = r.fold(
-                                    onSuccess = { f ->
-                                        ScriptRepo.deploy(context, f).fold(
-                                            onSuccess = {
-                                                scriptCmd = ""
-                                                "已部署 " + f.length() + " 字节，重启游戏生效"
+                            when (rootState) {
+                                ScriptRepo.RootStatus.DENIED,
+                                ScriptRepo.RootStatus.NO_MANAGER -> {
+                                    // 未授权：拉起 root 管理器让用户点允许
+                                    val opened = ScriptRepo.openRootManager(context)
+                                    scriptState = if (opened)
+                                        "已打开 root 管理器，请给本应用授权后重试"
+                                    else
+                                        "未找到 root 管理器，请手动授权：" + ScriptRepo.grantHint()
+                                    scriptCmd = ScriptRepo.grantHint()
+                                }
+                                else -> {
+                                    // 主路径其实不依赖这里：模块跑在游戏进程里，
+                                    // 自己会把最新脚本同步到游戏目录。这个按钮
+                                    // 只是「立刻强制同步一次」的覆盖手段。
+                                    scriptBusy = true
+                                    scriptState = "正在同步…"
+                                    scope.launch {
+                                        val r = ScriptRepo.download(context, game.scriptUrl)
+                                        val msg = r.fold(
+                                            onSuccess = { f ->
+                                                ScriptRepo.deploy(context, f).fold(
+                                                    onSuccess = {
+                                                        scriptCmd = ""
+                                                        "已部署 " + f.length() + " 字节，重启游戏生效"
+                                                    },
+                                                    onFailure = {
+                                                        scriptCmd = ScriptRepo.manualCommand(f.absolutePath)
+                                                        "部署失败：" + (it.message ?: "未知错误")
+                                                    },
+                                                )
                                             },
                                             onFailure = {
-                                                scriptCmd = ScriptRepo.manualCommand(f.absolutePath)
-                                                "部署失败（需要 root）：" + (it.message ?: "未知错误")
+                                                scriptCmd = ""
+                                                "下载失败：" + (it.message ?: "未知错误")
                                             },
                                         )
-                                    },
-                                    onFailure = {
-                                        scriptCmd = ""
-                                        "下载失败：" + (it.message ?: "未知错误")
-                                    },
-                                )
-                                scriptState = msg
-                                scriptBusy = false
+                                        scriptState = msg
+                                        scriptBusy = false
+                                    }
+                                }
                             }
                         }
                         .padding(horizontal = 12.dp, vertical = 7.dp),

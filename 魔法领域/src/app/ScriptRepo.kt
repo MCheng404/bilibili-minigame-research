@@ -1,6 +1,8 @@
 package com.hm.xposed
 
 import android.content.Context
+import android.content.Intent
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -24,11 +26,117 @@ import java.util.concurrent.TimeUnit
  */
 object ScriptRepo {
 
+    private const val TAG = "HMScript"
+
     /** 目标路径：游戏自己的 files 目录，native 层能读 */
     const val TARGET = "/data/data/tv.danmaku.bili/files/hm_inject.js"
 
-    /** 参考文件，用来对齐属主（bilibili 的 uid 是动态分配的，不能写死） */
-    private const val REF = "/data/data/tv.danmaku.bili/files/libhmshim.so"
+    /** 目标目录（属主要从这里取） */
+    private const val TARGET_DIR = "/data/data/tv.danmaku.bili/files"
+
+    /** 常见 su 路径。KernelSU 的 sucompat 会对已授权者呈现 /system/bin/su */
+    private val SU_PATHS = listOf(
+        "/system/bin/su",
+        "/system/xbin/su",
+        "/vendor/bin/su",
+        "/su/bin/su",
+        "su",
+    )
+
+    /** 常见的 root 管理器包名，用来引导用户去授权 */
+    private val MANAGERS = listOf(
+        "com.sukisu.ultra",          // SukiSU Ultra
+        "me.weishu.kernelsu",        // KernelSU 官方
+        "com.rifsnow.ksunext",       // KernelSU Next
+        "io.github.magisk317.xinyi.relay",
+        "com.topjohnwu.magisk",
+    )
+
+    /** root 授权状态 */
+    enum class RootStatus {
+        UNKNOWN,      // 还没检测过
+        NO_MANAGER,   // 没有 root 管理器（找不到 su）
+        DENIED,       // 有 su 但没被授权
+        GRANTED,      // 已授权，可以提权
+    }
+
+    data class RootInfo(
+        val status: RootStatus,
+        val detail: String,
+        val suPath: String?,
+    )
+
+    /** su 执行的一次尝试 */
+    private sealed class Attempt {
+        /** 跑起来了 */
+        data class Ran(val code: Int, val out: String) : Attempt()
+        /** 这个路径没有可执行的 su */
+        object Missing : Attempt()
+        /** su 存在但被内核/管理器拦下（典型：KernelSU 未授权） */
+        object Blocked : Attempt()
+    }
+
+    // ------------------------------------------------------------ root 检测
+
+    /**
+     * 检测 root 授权状态。
+     *
+     * KernelSU 用的是**白名单机制**：没被授权的 App 连 su 都感知不到 ——
+     * exec 会直接失败，而不是弹窗。所以这里要分清三种失败：
+     *   路径不存在  → 没装 root 管理器
+     *   被拦下      → 装了但没授权本 App（需要去管理器里点允许）
+     *   跑起来非 0  → 授权了但命令失败
+     */
+    suspend fun checkRoot(): RootInfo = withContext(Dispatchers.IO) {
+        var sawBinary = false
+        var blocked = false
+        for (p in SU_PATHS) {
+            try {
+                if (File(p).exists()) sawBinary = true
+            } catch (e: Exception) {
+            }
+            when (val a = attempt(p, "id")) {
+                is Attempt.Ran -> {
+                    if (a.code == 0 && a.out.contains("uid=0")) {
+                        Log.i(TAG, "root granted via $p")
+                        return@withContext RootInfo(RootStatus.GRANTED, "已授权", p)
+                    }
+                    val msg = a.out.trim()
+                    Log.w(TAG, "root denied via $p: $msg")
+                    return@withContext RootInfo(
+                        RootStatus.DENIED,
+                        msg.ifBlank { "su 返回 ${a.code}" },
+                        p,
+                    )
+                }
+                is Attempt.Blocked -> blocked = true
+                is Attempt.Missing -> {}
+            }
+        }
+        when {
+            blocked -> RootInfo(RootStatus.DENIED, "su 被拒绝执行，需要在 root 管理器里授权", null)
+            sawBinary -> RootInfo(RootStatus.DENIED, "检测到 su 但无法提权", null)
+            else -> RootInfo(RootStatus.NO_MANAGER, "未检测到 root 管理器", null)
+        }
+    }
+
+    /** 执行一次 root 命令，区分「没这路径」和「被拦下」 */
+    private fun attempt(suPath: String, cmd: String): Attempt = try {
+        val pb = ProcessBuilder(suPath, "-c", cmd)
+        // 合并 stderr，避免两个管道互相堵死
+        pb.redirectErrorStream(true)
+        val p = pb.start()
+        val out = p.inputStream.bufferedReader().readText()
+        val code = p.waitFor()
+        Attempt.Ran(code, out)
+    } catch (e: Exception) {
+        val msg = (e.message ?: "").lowercase()
+        Log.i(TAG, "su $suPath failed: ${e.javaClass.simpleName}: ${e.message}")
+        if (msg.contains("no such file") || msg.contains("not found")) Attempt.Missing
+        else Attempt.Blocked
+    }
+
+    // ------------------------------------------------------------ 脚本下载
 
     /** 下载到 App 私有目录 */
     private fun localFile(context: Context, name: String): File =
@@ -55,6 +163,8 @@ object ScriptRepo {
             }
         }
 
+    // ------------------------------------------------------------ 部署
+
     /**
      * 部署到游戏目录。
      *
@@ -63,30 +173,46 @@ object ScriptRepo {
      * 不支持 --reference，而且 bilibili 的 uid 是动态分配的，不能写死。
      */
     suspend fun deploy(context: Context, file: File): Result<String> = withContext(Dispatchers.IO) {
+        val root = checkRoot()
+        if (root.status != RootStatus.GRANTED) {
+            return@withContext Result.failure(
+                IllegalStateException("需要 root 权限：${root.detail}")
+            )
+        }
         runCatching {
-            val d = TARGET.substringBeforeLast('/')
             val sh = "cp '${file.absolutePath}' '$TARGET' && " +
-                "chown \$(stat -c %u '$d'):\$(stat -c %g '$d') '$TARGET' && " +
+                "chown \$(stat -c %u '$TARGET_DIR'):\$(stat -c %g '$TARGET_DIR') '$TARGET' && " +
                 "chmod 644 '$TARGET' && ls -la '$TARGET'"
-            val cmd = listOf("su", "-c", sh)
-            val p = ProcessBuilder(cmd).start()
-            val out = p.inputStream.bufferedReader().readText()
-            val err = p.errorStream.bufferedReader().readText()
-            if (!p.waitFor(20, TimeUnit.SECONDS)) {
-                p.destroy()
-                error("部署超时")
-            }
-            if (p.exitValue() != 0) {
-                error((err + out).ifBlank { "退出码 " + p.exitValue() })
-            }
-            out
+            val r = attempt(root.suPath ?: "su", sh)
+            if (r !is Attempt.Ran) error("su 执行失败")
+            if (r.code != 0) error(r.out.trim().ifBlank { "退出码 ${r.code}" })
+            r.out.trim()
         }
     }
 
-    /** 给用户看的手动部署命令 */
-    fun manualCommand(localPath: String): String {
-        val d = TARGET.substringBeforeLast('/')
-        return "adb push $localPath $TARGET && " +
-            "adb shell su -c 'chown \$(stat -c %u $d):\$(stat -c %g $d) $TARGET'"
+    // ------------------------------------------------------------ 引导授权
+
+    /** 拉起 root 管理器，让用户去给本 App 授权 */
+    fun openRootManager(context: Context): Boolean {
+        for (pkg in MANAGERS) {
+            try {
+                val i = context.packageManager.getLaunchIntentForPackage(pkg) ?: continue
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(i)
+                return true
+            } catch (e: Exception) {
+            }
+        }
+        return false
     }
+
+    /** 给用户看的手动部署命令 */
+    fun manualCommand(localPath: String): String =
+        "adb push $localPath $TARGET && " +
+            "adb shell su -c 'chown \$(stat -c %u $TARGET_DIR):\$(stat -c %g $TARGET_DIR) $TARGET'"
+
+    /** 授权指引文案 */
+    fun grantHint(): String =
+        "请在 root 管理器里找到本应用（HM 小游戏工具），" +
+            "打开「超级用户 / 授权」开关后重试"
 }
