@@ -259,6 +259,41 @@ try {
       return sp;
     };
 
+    // ------------------------------------------------------------ 复活
+    // 复活次数的来源链：
+    //   getVipPrivilege(3) 读的是 a.vipCfg.find(e => e.vipLv == vipLv).privilege_3
+    //   战斗初始化：s.reliveTime = g.getVipPrivilege(3)
+    //   阵亡判定：reliveTime > 0 ? (reliveTime--, 开 Game_Relive) : 开 Game_Over
+    // 所以改 vipCfg 的 privilege_3 能同时改到「初始值」和「每次消耗后的上限」。
+    //
+    // 注意：vipCfg 是远程配置（InitGameTable 里 JSON.parse 后整体覆盖），
+    // 游戏重载配置就会打回原值，因此必须周期性重打，不能只打一次。
+    G.__hmApplyRelive = function () {
+      var n = SET.reliveNum || 0;
+      if (n <= 0) return 0;
+      var c = 0;
+      try {
+        var cfg = G.__hma && G.__hma.vipCfg;
+        if (cfg && cfg.length) {
+          for (var i = 0; i < cfg.length; i++) {
+            try {
+              if (cfg[i].privilege_3 !== n) { cfg[i].privilege_3 = n; c++; }
+            } catch (e) {}
+          }
+        }
+      } catch (e) {}
+      // 已经开打的话，battleSave 里那份也保住
+      try {
+        var g = G.__hmg;
+        if (g && g.playerInfo && g.playerInfo.battleSave) {
+          var b = g.playerInfo.battleSave;
+          if (b.reliveTime < n) { b.reliveTime = n; c++; }
+        }
+      } catch (e) {}
+      G.__hmReliveMax = n;
+      return c;
+    };
+
     G.__hmApply = function () {
       var g = G.__hmg;
       if (!g || !g.playerInfo) return 0;
@@ -320,6 +355,7 @@ try {
       n += G.__hmApplyRoles();
       n += G.__hmApplyHeroes();
       n += G.__hmApplyTalents();
+      n += G.__hmApplyRelive();
       return n;
     };
 
@@ -363,6 +399,7 @@ try {
         speed: 1.62,       // 游戏倍速挡位（1.31/1.62/3/4）
         getAllNum: 999,     // 三选一场景「全都要」可用次数（0 = 走原逻辑，每战 1 次）
         refreshNum: 99,     // 三选一场景「换一批」免费次数（0 = 走原逻辑）
+        reliveNum: 999,     // 复活次数（0 = 走原逻辑，由 VIP privilege_3 决定）
         btGold: true,      // 局内金币
         btHp: true,        // 我方血量/人数
         btHero: true,      // 英雄四维与法力
@@ -425,6 +462,9 @@ try {
                 setPlayer(function (P) {
                   if (P.battleSave && v > 0) P.battleSave.getallCount = v;
                 });
+              }},
+              { t: 'num', label: '复活次数', key: 'reliveNum', apply: function (v) {
+                G.__hmApplyRelive();
               }},
               { t: 'num', label: '换一批次数', key: 'refreshNum', apply: function (v) {
                 setPlayer(function (P) {
@@ -1049,6 +1089,8 @@ try {
               R.gold = bb.goldNow;
               R.limit = bb.roleLimitNum;
               R.unit = G.__hmUnitCount || 0;
+              R.relive = bb.reliveTime;
+              R.reliveMax = G.__hmReliveMax || 0;
             }
             try { if (G.__hmBattleAuto) G.__hmBattle(); } catch (e) {}
             var tl0 = hs && hs.length ? (hs[0].talentList || []) : [];
@@ -1083,6 +1125,8 @@ try {
     if (G.__hmBattleAuto === undefined) G.__hmBattleAuto = true;
     setInterval(function () {
       try {
+        // 复活次数：vipCfg 是远程配置会被覆盖，必须持续重打
+        G.__hmApplyRelive();
         if (!G.__hmBattleAuto) return;
         var g = G.__hmg;
         if (g && g.playerInfo && g.playerInfo.battleSave) G.__hmBattle();

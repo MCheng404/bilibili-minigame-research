@@ -63,6 +63,7 @@ g.playerInfo.battleSave = {
   goldNow: 0,
   roleLimitNum: 6,
   getallCount: 1,
+  reliveTime: 0,
   freeRefCount: 3,
   heroSaveInfo: { mp_now: 30, mp_max: 30, atk: 12, def: 8, str: 8, int: 8 }
 };
@@ -73,6 +74,13 @@ battleNode._components = [ally, foe];
 stage.addChild(battleNode);
 globalThis.__ally = ally;
 globalThis.__foe = foe;
+
+// 模拟游戏的 getVipPrivilege：读 vipCfg 里当前等级的 privilege_N
+g.getVipPrivilege = function (idx) {
+  const t = globalThis.__hma.vipCfg.find(x => x.vipLv === g.playerInfo.vipLv);
+  if (t && t['privilege_' + idx] != null) return t['privilege_' + idx];
+  return 0;
+};
 
 globalThis.__hmgg = {
   platform: {
@@ -120,6 +128,18 @@ setTimeout(() => {
   console.log('点击后       =', P.battleSave.getallCount);
   globalThis.__hmBattle();
   console.log('循环恢复后   =', P.battleSave.getallCount, '(应重新回到 999)');
+  console.log('--- 复活 ---');
+  console.log('vipLv         =', P.vipLv);
+  console.log('特权表原值    =', globalThis.__hma.vipCfg.map(x => x.privilege_3).join(','));
+  globalThis.__hmApplyRelive();
+  console.log('打补丁后      =', globalThis.__hma.vipCfg.map(x => x.privilege_3).join(','));
+  console.log('getVipPrivilege(3) =', g.getVipPrivilege(3), '(应=999)');
+  console.log('battleSave.reliveTime =', P.battleSave.reliveTime, '(应=999)');
+  // 模拟阵亡：游戏会 reliveTime-- 然后开复活界面
+  P.battleSave.reliveTime--;
+  console.log('阵亡消耗后    =', P.battleSave.reliveTime);
+  globalThis.__hmApplyRelive();
+  console.log('循环补回后    =', P.battleSave.reliveTime, '(应=999 → 无限复活)');
   console.log('--- 倍速 ---');
   globalThis.__hmApplySpeed();
   console.log('speed   =', globalThis.__hma.gameSpeed_normal, '/', globalThis.__hma.gameSpeed_double, '| Laya.timer.scale =', globalThis.Laya.timer.scale);
