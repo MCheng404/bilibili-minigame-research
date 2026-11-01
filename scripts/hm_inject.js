@@ -622,10 +622,11 @@ try {
       var mode = adapted ? 'adapted' : 'common';
       if (mode === G.__hmMode) return 0;
       G.__hmMode = mode;
-      G.__hmLayout = null;      // 强制按新模式重建
-      if (adapted) {
-        G.__hmSet = null;        // 换成完整版默认值
-      }
+      G.__hmLayout = null;      // 强制按新模式重建布局
+      // 注意：不能把 G.__hmSet 置 null ——
+      // buildPanel 里要读 G.__hmSet[row.key] 取初始值，
+      // 置空会让整个面板构建抛异常。
+      // SET 本来就是完整版默认值，通用/适配两种模式共用即可。
       return 1;
     };
 
@@ -746,7 +747,6 @@ try {
       };
     };
 
-    if (!G.__hmLayout) G.__hmLayout = G.__hmBuildLayout();
 
     function setPlayer(fn) {
       var g = G.__hmg;
@@ -1465,11 +1465,16 @@ try {
       try { stage = Laya.stage; } catch (e) {}
       if (!stage || typeof Laya.Sprite !== 'function') return null;
 
-      // 模式变了（通用 <-> 已适配）就丢掉旧面板，下一轮按新布局重建
+      // 模式变了（通用 <-> 已适配）就丢掉旧面板，下一轮按新布局重建。
+      // 注意：注入发生时 bundle 还没执行，__hmg 尚不存在，那时只能建通用面板；
+      // 等 bundle 执行完拿到 __hmg，这里要按新模式重新生成布局。
       try {
         if (G.__hmApplyMode && G.__hmApplyMode()) {
           try { G.__hmDropUI(); } catch (e) {}
         }
+      } catch (e) {}
+      try {
+        if (!G.__hmLayout && G.__hmBuildLayout) G.__hmLayout = G.__hmBuildLayout();
       } catch (e) {}
 
       var f = collect(stage);

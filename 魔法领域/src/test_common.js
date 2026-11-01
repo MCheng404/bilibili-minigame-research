@@ -107,5 +107,18 @@ innerPlatform.playVideo('测试').then(e => {
   const l2 = GM.__hmBuildLayout();
   console.log('适配模式分组    :', l2.sections.map(s => s.title).join(', '));
 
+  // ---------- 回归：切换后重建面板，数值项必须出现 ----------
+  // 曾经的 bug：布局只在初始化时生成一次，模式切过去也没重建，
+  // 面板永远停在通用模式（只有菜单没有数值功能）。
+  console.log('--- 切换后重建面板 ---');
+  console.log('__hmSet 非空    :', GM.__hmSet ? '是 ✓' : '否 ✗ 会让 buildPanel 抛异常');
+  GM.__hmDropUI();
+  const body2 = GM.__hmUI();
+  const texts2 = [];
+  (function walk(n) { if (n.text) texts2.push(n.text); for (const c of n._children) walk(c); })(body2);
+  console.log('面板分组标题    :', texts2.filter(t => t === '冒险数值' || t === '战斗与功能' || t === '通用功能').join(', ') || '（无）');
+  console.log('含数值输入框    :', texts2.includes('应用') ? '是 ✓' : '否 ✗ 数值功能缺失');
+  console.log('含倍速挡位      :', texts2.some(t => t === '1x' || t === '2x' || t === '3x' || t === '4x') ? '是 ✓' : '否 ✗');
+
   process.exit(0);
 });

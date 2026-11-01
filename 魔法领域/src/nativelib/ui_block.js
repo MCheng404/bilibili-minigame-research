@@ -584,6 +584,18 @@
       try { stage = Laya.stage; } catch (e) {}
       if (!stage || typeof Laya.Sprite !== 'function') return null;
 
+      // 模式变了（通用 <-> 已适配）就丢掉旧面板，下一轮按新布局重建。
+      // 注意：注入发生时 bundle 还没执行，__hmg 尚不存在，那时只能建通用面板；
+      // 等 bundle 执行完拿到 __hmg，这里要按新模式重新生成布局。
+      try {
+        if (G.__hmApplyMode && G.__hmApplyMode()) {
+          try { G.__hmDropUI(); } catch (e) {}
+        }
+      } catch (e) {}
+      try {
+        if (!G.__hmLayout && G.__hmBuildLayout) G.__hmLayout = G.__hmBuildLayout();
+      } catch (e) {}
+
       var f = collect(stage);
       if (f.body && f.mini) {
         G.__hmBody = f.body;
