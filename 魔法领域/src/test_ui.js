@@ -7,7 +7,7 @@ class LSprite {
     this._children = [];
     this.visible = true;
     this.x = 0; this.y = 0; this.width = 0; this.height = 0;
-    this.graphics = { drawRect() {}, drawCircle() {}, clear() {} };
+    this.graphics = { drawRect() {}, drawCircle() {}, clear() {}, drawPath() {} };
     this.parent = null;
     this.zOrder = 0;
     this.mouseEnabled = false;
@@ -43,7 +43,7 @@ stage.height = 1334;
 stage.height = 1334;
 
 class LInput extends LSprite {
-  constructor() { super(); this.text = ''; this.fontSize = 14; this.bgColor = ''; this.borderColor = ''; this.padding = ''; this.type = ''; }
+  constructor() { super(); this.text = ''; this.fontSize = 14; this.bgColor = ''; this.borderColor = ''; this.padding = ''; this.type = ''; this.align = ''; this.valign = ''; }
 }
 class LPanel extends LSprite {
   constructor() { super(); this.vScrollBarSkin = ''; }

@@ -16,6 +16,7 @@
 | [03-部署与调试.md](./03-部署与调试.md) | 从编译到生效的完整步骤、常用调试命令 |
 | [04-踩坑记录.md](./04-踩坑记录.md) | 21 个实际踩过的坑与判断依据 |
 | [05-配套App.md](./05-配套App.md) | LSPosed 模块的配置界面：Miuix UI、作用域推荐、构建要点 |
+| [06-悬浮面板框架.md](./06-悬浮面板框架.md) | 游戏内悬浮修改器的通用框架：主题、组件、布局 API、圆角实现、踩坑 |
 
 ## 资源
 
@@ -27,7 +28,11 @@
 | `src/nativelib/hmshim.c` | 注入库源码（定位引擎、hook、源码改写、探针注入） |
 | `src/zyginject/` | Zygisk 注入模块（`zygisk_main.cpp` + 官方 `zygisk.hpp` + `pack.py`），与 LSPosed 方案二选一 |
 | `src/app/` | LSPosed 模块的配置界面（`MainActivity.kt` + 构建配置 + 清单 + 作用域数组） |
-| `src/nativelib/inj.js` | 游戏内探针（v12）：养成数值 + 战斗强化 + 可折叠悬浮面板 |
+| `src/nativelib/inj.js` | 游戏内探针（v15）：养成数值 + 战斗强化 + 倍速 + 复活次数 |
+| `src/nativelib/ui_block.js` | **通用悬浮面板框架**（跨游戏共用，配置驱动） |
+| `src/render_panel.js` | 面板预览渲染器：mock 构建 → SVG，脱离游戏看 UI |
+| `src/test_visual.js` | 视觉回归：圆角弧角数、悬浮态、每行独立写入 |
+| `dump/panel_preview.png` | 面板设计预览图（由渲染器生成，与游戏内一致） |
 | `src/nativelib/inj.js` | 游戏内探针 + 悬浮面板源码 |
 | `src/nativelib/inj_gen.h` | 由 `inj.js` 自动生成的 C 字符串头文件 |
 | `src/build_inj.py` | `inj.js` → `inj_gen.h` 转换脚本 |
@@ -130,31 +135,36 @@ teamId    // 0 = 我方，1 = 敌方
 
 ### 悬浮面板（通用框架）
 
-面板由**配置驱动**的通用框架渲染，所有小程序游戏共用同一套 UI 组件：
+**所有小程序游戏共用同一套面板框架**，详见 [06-悬浮面板框架.md](./06-悬浮面板框架.md)。
 
+- **视觉**：浅蓝玻璃主题、95% 半透明、全圆角、所有可点元素有悬浮态
 - **折叠态**：圆形按钮（72×72），可拖动，位置记住
-- **展开态**：占屏幕 **78% 居中**，标题栏可拖动、右上角圆形 × 折叠
+- **展开态**：占屏幕 **80% 居中**，标题栏可拖动、右上角圆形 × 折叠
 - **中间是滚动区**（`Laya.Panel`），内容超出可滚动
 - **底部固定**两个按钮（一键拉满 / 写入存档）
+- **开关改两列并排**，比整宽排布紧凑得多
 
-游戏适配层只需提供 `G.__hmLayout`（布局描述）和 `G.__hmSet`（默认值），框架负责渲染：
+游戏适配层只需提供 `G.__hmLayout`（布局描述）和 `G.__hmSet`（默认值）：
 
 ```js
 G.__hmLayout = {
   sections: [{
     title: '分组名',
     rows: [
-      { t:'num',  label:'钻石', key:'diamond', apply(v){} },   // 数值输入
-      { t:'sw',   label:'无限金币', key:'btGold' },              // 开关
-      { t:'gear', label:'游戏倍速', key:'speed', opts:[...] }   // 挡位选择
+      { t:'num',  label:'钻石', key:'diamond', apply(v){} },        // 数值输入
+      { t:'sw',   half:true, label:'无限金币', key:'btGold' },       // 开关（两列）
+      { t:'gear', label:'游戏倍速', key:'speed', opts:[...] }        // 挡位选择
     ]
   }],
   actions: [ { label:'一键拉满', color:'#2456B8', fn(){} } ]
 }
 ```
 
-组件类型：`num`（输入框+应用按钮）、`sw`（开关）、`gear`（多挡位分段按钮）。
-换游戏时只需改布局配置 + `__hmApply` 系列函数，框架代码完全复用。
+行类型只有三种：`num` / `sw` / `gear`。换游戏时只需改布局配置 +
+`__hmApply` 系列函数，框架代码完全复用。
+
+圆角靠 Laya 的 `graphics.drawPath`（`drawRect` 不支持圆角），
+引擎不支持时自动降级为直角矩形。
 
 ### 三选一场景次数
 

@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="750" height="1334" viewBox="0 0 750 1334">
+<rect width="750" height="1334" fill="#101a2c"/>
+<rect x="0" y="0" width="750" height="1334" fill="#16233a"/>
+<circle cx="0" cy="0" r="18" fill="#1d2f4c" opacity="0.7"/>
+<circle cx="97" cy="163" r="25" fill="#1d2f4c" opacity="0.7"/>
+<circle cx="194" cy="326" r="32" fill="#1d2f4c" opacity="0.7"/>
+<circle cx="291" cy="489" r="39" fill="#1d2f4c" opacity="0.7"/>
+<circle cx="388" cy="652" r="46" fill="#1d2f4c" opacity="0.7"/>
+<circle cx="485" cy="815" r="18" fill="#1d2f4c" opacity="0.7"/>
+<circle cx="582" cy="978" r="25" fill="#1d2f4c" opacity="0.7"/>
+<circle cx="679" cy="1141" r="32" fill="#1d2f4c" opacity="0.7"/>
+<circle cx="26" cy="1304" r="39" fill="#1d2f4c" opacity="0.7"/>
+<circle cx="123" cy="133" r="46" fill="#1d2f4c" opacity="0.7"/>
+<circle cx="220" cy="296" r="18" fill="#1d2f4c" opacity="0.7"/>
+<circle cx="317" cy="459" r="25" fill="#1d2f4c" opacity="0.7"/>
+<circle cx="414" cy="622" r="32" fill="#1d2f4c" opacity="0.7"/>
+<circle cx="511" cy="785" r="39" fill="#1d2f4c" opacity="0.7"/>
+<circle cx="698" cy="863" r="36" fill="rgba(48,112,208,0.94)"/>
+<circle cx="698" cy="863" r="36" fill="none" stroke="#8CCBFF" stroke-width="2"/>
+<text x="686" y="869.9" font-size="22" fill="#FFFFFF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">HM</text>
+<g transform="translate(75,133)"><path d="M 18 0 L 582 0 A 18 18 0 0 1 600 18 L 600 1049 A 18 18 0 0 1 582 1067 L 18 1067 A 18 18 0 0 1 0 1049 L 0 18 A 18 18 0 0 1 18 0 Z " fill="rgba(20, 42, 78, 0.95)" stroke="rgba(150, 205, 255, 0.55)" stroke-width="2"/></g>
+<g transform="translate(75,133)"><path d="M 0 18 A 18 18 0 0 1 18 0 L 582 0 A 18 18 0 0 1 600 18 L 600 58 L 0 58 Z " fill="rgba(38, 76, 130, 0.95)"/></g>
+<text x="97" y="171.85" font-size="23" fill="#CFE9FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">HM 修改器</text>
+<circle cx="642" cy="162" r="19" fill="rgba(190, 66, 78, 0.92)"/>
+<circle cx="642" cy="162" r="19" fill="none" stroke="rgba(255,200,205,0.75)" stroke-width="2"/>
+<text x="635" y="170.7" font-size="26" fill="#FFFFFF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">×</text>
+<text x="109" y="227.05" font-size="19" fill="#8FD4FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">冒险数值</text>
+<rect x="95" y="208" width="4" height="22" fill="#8FD4FF"/>
+<text x="109" y="276.95" font-size="21" fill="#C8E6FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">钻石</text>
+<g transform="translate(241,243)"><path d="M 11 0 L 315 0 A 11 11 0 0 1 326 11 L 326 41 A 11 11 0 0 1 315 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="rgba(9, 22, 44, 0.92)" stroke="#4E9AD8" stroke-width="2"/></g>
+<text x="252" y="275.9" font-size="22" fill="#EAF6FF" font-family="'JetBrains Mono', Consolas, monospace">888888</text>
+<g transform="translate(577,243)"><path d="M 11 0 L 67 0 A 11 11 0 0 1 78 11 L 78 41 A 11 11 0 0 1 67 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="#3D86D8" stroke="#7FC4FF" stroke-width="2"/></g>
+<text x="594" y="275.9" font-size="22" fill="#FFFFFF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">应用</text>
+<text x="109" y="334.95" font-size="21" fill="#C8E6FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">木材</text>
+<g transform="translate(241,301)"><path d="M 11 0 L 315 0 A 11 11 0 0 1 326 11 L 326 41 A 11 11 0 0 1 315 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="rgba(9, 22, 44, 0.92)" stroke="#4E9AD8" stroke-width="2"/></g>
+<text x="252" y="333.9" font-size="22" fill="#EAF6FF" font-family="'JetBrains Mono', Consolas, monospace">99999</text>
+<g transform="translate(577,301)"><path d="M 11 0 L 67 0 A 11 11 0 0 1 78 11 L 78 41 A 11 11 0 0 1 67 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="#3D86D8" stroke="#7FC4FF" stroke-width="2"/></g>
+<text x="594" y="333.9" font-size="22" fill="#FFFFFF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">应用</text>
+<text x="109" y="392.95" font-size="21" fill="#C8E6FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">石头</text>
+<g transform="translate(241,359)"><path d="M 11 0 L 315 0 A 11 11 0 0 1 326 11 L 326 41 A 11 11 0 0 1 315 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="rgba(9, 22, 44, 0.92)" stroke="#4E9AD8" stroke-width="2"/></g>
+<text x="252" y="391.9" font-size="22" fill="#EAF6FF" font-family="'JetBrains Mono', Consolas, monospace">99999</text>
+<g transform="translate(577,359)"><path d="M 11 0 L 67 0 A 11 11 0 0 1 78 11 L 78 41 A 11 11 0 0 1 67 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="#3D86D8" stroke="#7FC4FF" stroke-width="2"/></g>
+<text x="594" y="391.9" font-size="22" fill="#FFFFFF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">应用</text>
+<text x="109" y="450.95" font-size="21" fill="#C8E6FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">竞技币</text>
+<g transform="translate(241,417)"><path d="M 11 0 L 315 0 A 11 11 0 0 1 326 11 L 326 41 A 11 11 0 0 1 315 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="rgba(9, 22, 44, 0.92)" stroke="#4E9AD8" stroke-width="2"/></g>
+<text x="252" y="449.9" font-size="22" fill="#EAF6FF" font-family="'JetBrains Mono', Consolas, monospace">99999</text>
+<g transform="translate(577,417)"><path d="M 11 0 L 67 0 A 11 11 0 0 1 78 11 L 78 41 A 11 11 0 0 1 67 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="#3D86D8" stroke="#7FC4FF" stroke-width="2"/></g>
+<text x="594" y="449.9" font-size="22" fill="#FFFFFF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">应用</text>
+<text x="109" y="508.95" font-size="21" fill="#C8E6FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">神石</text>
+<g transform="translate(241,475)"><path d="M 11 0 L 315 0 A 11 11 0 0 1 326 11 L 326 41 A 11 11 0 0 1 315 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="rgba(9, 22, 44, 0.92)" stroke="#4E9AD8" stroke-width="2"/></g>
+<text x="252" y="507.9" font-size="22" fill="#EAF6FF" font-family="'JetBrains Mono', Consolas, monospace">99999</text>
+<g transform="translate(577,475)"><path d="M 11 0 L 67 0 A 11 11 0 0 1 78 11 L 78 41 A 11 11 0 0 1 67 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="#3D86D8" stroke="#7FC4FF" stroke-width="2"/></g>
+<text x="594" y="507.9" font-size="22" fill="#FFFFFF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">应用</text>
+<text x="109" y="566.95" font-size="21" fill="#C8E6FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">经验</text>
+<g transform="translate(241,533)"><path d="M 11 0 L 315 0 A 11 11 0 0 1 326 11 L 326 41 A 11 11 0 0 1 315 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="rgba(9, 22, 44, 0.92)" stroke="#4E9AD8" stroke-width="2"/></g>
+<text x="252" y="565.9" font-size="22" fill="#EAF6FF" font-family="'JetBrains Mono', Consolas, monospace">999999</text>
+<g transform="translate(577,533)"><path d="M 11 0 L 67 0 A 11 11 0 0 1 78 11 L 78 41 A 11 11 0 0 1 67 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="#3D86D8" stroke="#7FC4FF" stroke-width="2"/></g>
+<text x="594" y="565.9" font-size="22" fill="#FFFFFF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">应用</text>
+<text x="109" y="624.95" font-size="21" fill="#C8E6FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">VIP 等级</text>
+<g transform="translate(241,591)"><path d="M 11 0 L 315 0 A 11 11 0 0 1 326 11 L 326 41 A 11 11 0 0 1 315 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="rgba(9, 22, 44, 0.92)" stroke="#4E9AD8" stroke-width="2"/></g>
+<text x="252" y="623.9" font-size="22" fill="#EAF6FF" font-family="'JetBrains Mono', Consolas, monospace">10</text>
+<g transform="translate(577,591)"><path d="M 11 0 L 67 0 A 11 11 0 0 1 78 11 L 78 41 A 11 11 0 0 1 67 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="#3D86D8" stroke="#7FC4FF" stroke-width="2"/></g>
+<text x="594" y="623.9" font-size="22" fill="#FFFFFF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">应用</text>
+<text x="109" y="675.05" font-size="19" fill="#8FD4FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">战斗与功能</text>
+<rect x="95" y="656" width="4" height="22" fill="#8FD4FF"/>
+<text x="109" y="710.95" font-size="21" fill="#C8E6FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">游戏倍速</text>
+<g transform="translate(109,721)"><path d="M 9 0 L 121 0 A 9 9 0 0 1 130 9 L 130 37 A 9 9 0 0 1 121 46 L 9 46 A 9 9 0 0 1 0 37 L 0 9 A 9 9 0 0 1 9 0 Z " fill="rgba(120, 158, 205, 0.20)" stroke="rgba(150,200,250,0.32)" stroke-width="2"/></g>
+<text x="162" y="750.95" font-size="21" fill="#9CC3E8" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">1x</text>
+<g transform="translate(247,721)"><path d="M 9 0 L 121 0 A 9 9 0 0 1 130 9 L 130 37 A 9 9 0 0 1 121 46 L 9 46 A 9 9 0 0 1 0 37 L 0 9 A 9 9 0 0 1 9 0 Z " fill="#3D86D8" stroke="#7FC4FF" stroke-width="2"/></g>
+<text x="300" y="750.95" font-size="21" fill="#FFFFFF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">2x</text>
+<g transform="translate(385,721)"><path d="M 9 0 L 121 0 A 9 9 0 0 1 130 9 L 130 37 A 9 9 0 0 1 121 46 L 9 46 A 9 9 0 0 1 0 37 L 0 9 A 9 9 0 0 1 9 0 Z " fill="rgba(120, 158, 205, 0.20)" stroke="rgba(150,200,250,0.32)" stroke-width="2"/></g>
+<text x="438" y="750.95" font-size="21" fill="#9CC3E8" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">3x</text>
+<g transform="translate(523,721)"><path d="M 9 0 L 121 0 A 9 9 0 0 1 130 9 L 130 37 A 9 9 0 0 1 121 46 L 9 46 A 9 9 0 0 1 0 37 L 0 9 A 9 9 0 0 1 9 0 Z " fill="rgba(120, 158, 205, 0.20)" stroke="rgba(150,200,250,0.32)" stroke-width="2"/></g>
+<text x="576" y="750.95" font-size="21" fill="#9CC3E8" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">4x</text>
+<text x="109" y="812.95" font-size="21" fill="#C8E6FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">上阵上限</text>
+<g transform="translate(241,779)"><path d="M 11 0 L 315 0 A 11 11 0 0 1 326 11 L 326 41 A 11 11 0 0 1 315 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="rgba(9, 22, 44, 0.92)" stroke="#4E9AD8" stroke-width="2"/></g>
+<text x="252" y="811.9" font-size="22" fill="#EAF6FF" font-family="'JetBrains Mono', Consolas, monospace">20</text>
+<g transform="translate(577,779)"><path d="M 11 0 L 67 0 A 11 11 0 0 1 78 11 L 78 41 A 11 11 0 0 1 67 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="#3D86D8" stroke="#7FC4FF" stroke-width="2"/></g>
+<text x="594" y="811.9" font-size="22" fill="#FFFFFF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">应用</text>
+<text x="109" y="870.95" font-size="21" fill="#C8E6FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">全都要次数</text>
+<g transform="translate(241,837)"><path d="M 11 0 L 315 0 A 11 11 0 0 1 326 11 L 326 41 A 11 11 0 0 1 315 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="rgba(9, 22, 44, 0.92)" stroke="#4E9AD8" stroke-width="2"/></g>
+<text x="252" y="869.9" font-size="22" fill="#EAF6FF" font-family="'JetBrains Mono', Consolas, monospace">999</text>
+<g transform="translate(577,837)"><path d="M 11 0 L 67 0 A 11 11 0 0 1 78 11 L 78 41 A 11 11 0 0 1 67 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="#3D86D8" stroke="#7FC4FF" stroke-width="2"/></g>
+<text x="594" y="869.9" font-size="22" fill="#FFFFFF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">应用</text>
+<text x="109" y="928.95" font-size="21" fill="#C8E6FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">复活次数</text>
+<g transform="translate(241,895)"><path d="M 11 0 L 315 0 A 11 11 0 0 1 326 11 L 326 41 A 11 11 0 0 1 315 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="rgba(9, 22, 44, 0.92)" stroke="#4E9AD8" stroke-width="2"/></g>
+<text x="252" y="927.9" font-size="22" fill="#EAF6FF" font-family="'JetBrains Mono', Consolas, monospace">999</text>
+<g transform="translate(577,895)"><path d="M 11 0 L 67 0 A 11 11 0 0 1 78 11 L 78 41 A 11 11 0 0 1 67 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="#3D86D8" stroke="#7FC4FF" stroke-width="2"/></g>
+<text x="594" y="927.9" font-size="22" fill="#FFFFFF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">应用</text>
+<text x="109" y="986.95" font-size="21" fill="#C8E6FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">换一批次数</text>
+<g transform="translate(241,953)"><path d="M 11 0 L 315 0 A 11 11 0 0 1 326 11 L 326 41 A 11 11 0 0 1 315 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="rgba(9, 22, 44, 0.92)" stroke="#4E9AD8" stroke-width="2"/></g>
+<text x="252" y="985.9" font-size="22" fill="#EAF6FF" font-family="'JetBrains Mono', Consolas, monospace">99</text>
+<g transform="translate(577,953)"><path d="M 11 0 L 67 0 A 11 11 0 0 1 78 11 L 78 41 A 11 11 0 0 1 67 52 L 11 52 A 11 11 0 0 1 0 41 L 0 11 A 11 11 0 0 1 11 0 Z " fill="#3D86D8" stroke="#7FC4FF" stroke-width="2"/></g>
+<text x="594" y="985.9" font-size="22" fill="#FFFFFF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">应用</text>
+<text x="109" y="1039.95" font-size="21" fill="#C8E6FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">无限金币</text>
+<g transform="translate(310,1011)"><path d="M 18 0 L 46 0 A 18 18 0 0 1 64 18 L 64 18 A 18 18 0 0 1 46 36 L 18 36 A 18 18 0 0 1 0 18 L 0 18 A 18 18 0 0 1 18 0 Z " fill="#3D86D8" stroke="#3D86D8" stroke-width="2"/></g>
+<circle cx="355" cy="1029" r="13" fill="#EAF6FF"/>
+<text x="390" y="1039.95" font-size="21" fill="#C8E6FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">无限血量</text>
+<g transform="translate(591,1011)"><path d="M 18 0 L 46 0 A 18 18 0 0 1 64 18 L 64 18 A 18 18 0 0 1 46 36 L 18 36 A 18 18 0 0 1 0 18 L 0 18 A 18 18 0 0 1 18 0 Z " fill="#3D86D8" stroke="#3D86D8" stroke-width="2"/></g>
+<circle cx="636" cy="1029" r="13" fill="#EAF6FF"/>
+<text x="109" y="1091.95" font-size="21" fill="#C8E6FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">英雄强化</text>
+<g transform="translate(310,1063)"><path d="M 18 0 L 46 0 A 18 18 0 0 1 64 18 L 64 18 A 18 18 0 0 1 46 36 L 18 36 A 18 18 0 0 1 0 18 L 0 18 A 18 18 0 0 1 18 0 Z " fill="#3D86D8" stroke="#3D86D8" stroke-width="2"/></g>
+<circle cx="355" cy="1081" r="13" fill="#EAF6FF"/>
+<text x="390" y="1091.95" font-size="21" fill="#C8E6FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">免广告</text>
+<g transform="translate(591,1063)"><path d="M 18 0 L 46 0 A 18 18 0 0 1 64 18 L 64 18 A 18 18 0 0 1 46 36 L 18 36 A 18 18 0 0 1 0 18 L 0 18 A 18 18 0 0 1 18 0 Z " fill="#3D86D8" stroke="#3D86D8" stroke-width="2"/></g>
+<circle cx="636" cy="1081" r="13" fill="#EAF6FF"/>
+<text x="109" y="1143.95" font-size="21" fill="#C8E6FF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">自动应用</text>
+<g transform="translate(310,1115)"><path d="M 18 0 L 46 0 A 18 18 0 0 1 64 18 L 64 18 A 18 18 0 0 1 46 36 L 18 36 A 18 18 0 0 1 0 18 L 0 18 A 18 18 0 0 1 18 0 Z " fill="#3D86D8" stroke="#3D86D8" stroke-width="2"/></g>
+<circle cx="355" cy="1133" r="13" fill="#EAF6FF"/>
+<g transform="translate(75,1114)"><path d="M 0 0 L 600 0 L 600 68 A 18 18 0 0 1 582 86 L 18 86 A 18 18 0 0 1 0 68 Z " fill="rgba(30, 60, 104, 0.95)"/></g>
+<g transform="translate(95,1129)"><path d="M 11 0 L 259 0 A 11 11 0 0 1 270 11 L 270 45 A 11 11 0 0 1 259 56 L 11 56 A 11 11 0 0 1 0 45 L 0 11 A 11 11 0 0 1 11 0 Z " fill="#2456B8" stroke="#7FC4FF" stroke-width="2"/></g>
+<text x="186" y="1163.9" font-size="22" fill="#FFFFFF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">一键拉满</text>
+<g transform="translate(385,1129)"><path d="M 11 0 L 259 0 A 11 11 0 0 1 270 11 L 270 45 A 11 11 0 0 1 259 56 L 11 56 A 11 11 0 0 1 0 45 L 0 11 A 11 11 0 0 1 11 0 Z " fill="#1F7A4D" stroke="#7FC4FF" stroke-width="2"/></g>
+<text x="476" y="1163.9" font-size="22" fill="#FFFFFF" font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">写入存档</text>
+</svg>
