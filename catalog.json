@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "updatedAt": "2026-11-01T20:50:00Z",
+  "repo": "https://github.com/MCheng404/bilibili-minigame-research",
+  "note": "App 启动时拉取本文件。新增小游戏只要在这里加一条记录，App 不用重新发布。",
+  "games": [
+    {
+      "id": "magic-realm",
+      "name": "魔法领域",
+      "engine": "Laya",
+      "chapter": "第 10 章 驯兽师",
+      "status": "full",
+      "accent": "#2C6BED",
+      "summary": "跑在 libMiniEngine.so 内嵌 V8 里，数据单例藏在模块 IIFE 闭包中，通过改写 Script::Compile 的源码把它暴露到 globalThis 后再改。",
+      "features": [
+        "钻石 / 木材 / 石头 / 竞技币 / 神石",
+        "VIP 等级、神格、体力、经验",
+        "兵种与英雄满级、天赋全满",
+        "战斗内：无限金币 / 无限血量 / 上阵人数",
+        "游戏倍速 1x 2x 3x 4x",
+        "三选一「全都要」次数、无限复活",
+        "免广告直接领奖励、一键写入存档"
+      ],
+      "scriptUrl": "https://raw.githubusercontent.com/MCheng404/bilibili-minigame-research/master/scripts/hm_inject.js",
+      "commonScriptUrl": "https://raw.githubusercontent.com/MCheng404/bilibili-minigame-research/master/scripts/hm_common.js",
+      "docsUrl": "https://github.com/MCheng404/bilibili-minigame-research/blob/master/%E9%AD%94%E6%B3%95%E9%A2%86%E5%9F%9F/README.md"
+    }
+  ]
+}

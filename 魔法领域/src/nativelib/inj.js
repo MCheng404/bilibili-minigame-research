@@ -15,6 +15,232 @@ try {
   var G = (typeof globalThis !== 'undefined') ? globalThis : this;
   if (!G.__hmw12) {
     G.__hmw12 = 1;
+
+    // ===== HM COMMON INLINE =====
+/* =============================================================================
+ * HM 通用脚本 —— 未适配小游戏的通用能力层
+ * -----------------------------------------------------------------------------
+ * 这份脚本不依赖任何具体游戏的数据结构，任何跑在 Laya / 小游戏容器里的
+ * 游戏都能用，核心是**基础去广告**：
+ *
+ *   1. 接管平台对象上的 playVideo / playVideo_pre
+ *      —— 通过 native 层在模块作用域里定义的 __hmBridge() 桥接函数拿到，
+ *         即使平台对象是模块私有变量也能接管
+ *   2. 递归扫描 globalThis，接管 wx / tt / 容器 SDK 上的
+ *      createRewardedVideoAd / showInterstitialAd 等标准广告 API
+ *
+ * 它既可以单独作为注入脚本使用（一个完整可 eval 的文件），
+ * 也可以被构建脚本内联进完整版 inj.js —— 两种形态共用同一份源码。
+ *
+ * 模式判定：
+ *   通用模式   —— 没拿到 __hmg（数据单例），面板只显示通用功能
+ *   适配模式   —— 拿到 __hmg，面板显示完整数值修改
+ * 判定是延迟做的：注入发生在 bundle 被编译之后、游戏执行之前，
+ * 那一刻 __hmg 还不存在，所以由探针的定时器持续检测。
+ * ========================================================================== */
+
+(function (G) {
+  'use strict';
+  if (!G) return;
+  if (G.__hmCommon) return;      // 已加载
+  G.__hmCommon = 1;
+
+  /* ------------------------------------------------------------------ 工具 */
+  function isObj(v) {
+    return v !== null && typeof v === 'object';
+  }
+
+  /** 延迟到下一帧执行，避免在模块初始化期间改动宿主对象 */
+  function later(fn, ms) {
+    try {
+      if (typeof setTimeout === 'function') setTimeout(fn, ms || 0);
+    } catch (e) {}
+  }
+
+  /* ------------------------------------------------------------ 免广告接管 */
+
+  /** 被接管的广告方法名 */
+  var AD_KEYS = {
+    playVideo: 1, playVideoAd: 1, playVideo_pre: 1, playVideoPre: 1,
+    showVideo: 1, showRewardVideo: 1, showRewardedVideo: 1,
+    showVideoAd: 1, showAd: 1,
+    createRewardedVideoAd: 1, createInterstitialAd: 1, createBannerAd: 1,
+    showInterstitialAd: 1, showBannerAd: 1
+  };
+
+  /**
+   * 把一个广告方法替换成「直接成功」版本。
+   * 不同 API 的返回形态不同，必须分别处理，否则会把调用方的
+   * `ad.show().then(...)` 链弄断：
+   *   - playVideo / showVideo 一类   → 返回 Promise，resolve(1)
+   *   - playVideo_pre 一类（布尔判断）→ 直接 return true
+   *   - createRewardedVideoAd 一类   → 返回「广告对象」，show/load 直接成功
+   */
+  function patchAd(obj, key) {
+    try {
+      if (!obj || typeof obj[key] !== 'function') return 0;
+      if (obj[key].__hm) return 1;
+      var orig = obj[key];
+      var fake;
+      if (key === 'createRewardedVideoAd' || key === 'createInterstitialAd' ||
+          key === 'createBannerAd') {
+        fake = function () {
+          var ad = {
+            show: function () { return Promise.resolve(1); },
+            load: function () { return Promise.resolve(1); },
+            destroy: function () {},
+            onClose: function () {}, offClose: function () {},
+            onError: function () {}, offError: function () {},
+            onLoad: function () {}, offLoad: function () {}
+          };
+          ad.__hm = 1;
+          return ad;
+        };
+      } else if (/_pre$|^pre$/.test(key)) {
+        fake = function () { return true; };
+      } else {
+        fake = function () {
+          return new Promise(function (resolve) {
+            setTimeout(function () { try { resolve(1); } catch (e) {} }, 30);
+          });
+        };
+      }
+      fake.__hm = 1;
+      fake.__hmOrig = orig;
+      obj[key] = fake;
+      return 1;
+    } catch (e) { return 0; }
+  }
+
+  /**
+   * 递归扫描对象树，把识别到的广告方法接管掉。
+   * 深度 2~3 层足够覆盖 globalThis → gg → platform / wx → API 的结构。
+   */
+  function scanAds(root, depth, seen) {
+    var n = 0;
+    if (!isObj(root) || depth < 0) return 0;
+    try {
+      var keys = Object.keys(root);
+      for (var i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        var v;
+        try { v = root[k]; } catch (e) { continue; }
+        if (!v) continue;
+        if (typeof v === 'function') {
+          if (AD_KEYS[k]) n += patchAd(root, k);
+        } else if (isObj(v) && k !== 'window' && k !== 'document' &&
+                   k !== 'self' && k !== 'globalThis' && k !== 'Laya' &&
+                   k !== 'laya' && k !== 'console') {
+          if (seen.indexOf(v) >= 0) continue;
+          seen.push(v);
+          n += scanAds(v, depth - 1, seen);
+        }
+      }
+    } catch (e) {}
+    return n;
+  }
+
+  /**
+   * 找到平台对象。优先用直接暴露的，其次用模块作用域桥接，
+   * 最后扫描 globalThis 找带 platform 字段的对象。
+   */
+  function findPlatform() {
+    var gg = G.__hmgg || G.gg || (G.GameGlobal && G.GameGlobal.gg) || null;
+    if (!gg) {
+      try {
+        if (typeof G.__hmBridge === 'function') {
+          var b = G.__hmBridge();
+          if (b && b.gg) gg = b.gg;
+        }
+      } catch (e) {}
+    }
+    if (gg && gg.platform) return gg.platform;
+    // 兜底：globalThis 里扫一个带 platform 子对象的
+    try {
+      var keys = Object.keys(G);
+      for (var i = 0; i < keys.length; i++) {
+        var v;
+        try { v = G[keys[i]]; } catch (e) { continue; }
+        if (isObj(v) && v.platform && typeof v.platform === 'object') return v.platform;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  /** 执行一次接管，返回接管到的入口数量 */
+  function hookAds() {
+    var n = 0;
+    var p = findPlatform();
+    if (p) {
+      n += patchAd(p, 'playVideo');
+      n += patchAd(p, 'playVideo_pre');
+      n += patchAd(p, 'playVideoAd');
+    }
+    n += scanAds(G, 2, []);
+    G.__hmAdOn = n > 0 ? 1 : 0;
+    G.__hmAdN = n;
+    return n;
+  }
+
+  G.__hmHookAds = hookAds;
+  G.__hmPatchAd = patchAd;
+  G.__hmFindPlatform = findPlatform;
+
+  /* -------------------------------------------------------- 通用模式的界面 */
+  /*
+   * 通用面板只放通用能力：
+   *   - 免广告开关
+   *   - 重新接管按钮（游戏可能自己重设方法）
+   *   - 状态行（显示接管了几个广告入口、当前是通用还是适配模式）
+   */
+  G.__hmCommonLayout = {
+    sections: [
+      {
+        title: '通用功能',
+        rows: [
+          { t: 'sw', label: '免广告', key: 'adFree', onChange: function (on) {
+            if (!on) { G.__hmAdOff = 1; } else { G.__hmAdOff = 0; hookAds(); }
+          }},
+          { t: 'gear', label: '接管强度', key: 'scanDepth',
+            opts: [
+              { label: '浅', value: 1 },
+              { label: '中', value: 2 },
+              { label: '深', value: 3 }
+            ],
+            apply: function (v) { G.__hmScanDepth = v; hookAds(); }
+          }
+        ]
+      }
+    ],
+    actions: [
+      { label: '重新接管广告', color: '#2456B8', fn: function () {
+        var n = hookAds();
+        try { G.__hmTitle.text = 'HM 已接管 ' + n + ' 个广告入口'; } catch (e) {}
+      }}
+    ]
+  };
+
+  /* 默认配置：通用模式只需要这几项 */
+  G.__hmCommonSet = {
+    adFree: true,
+    scanDepth: 2
+  };
+
+  /** 当前是否已经适配到具体游戏（拿到了数据单例） */
+  G.__hmIsAdapted = function () {
+    try { return !!(G.__hmg && G.__hmg.playerInfo); } catch (e) { return false; }
+  };
+
+  /** 模式：common / adapted */
+  G.__hmMode = G.__hmIsAdapted() ? 'adapted' : 'common';
+
+  /* 首次接管。延后一点，等游戏把 SDK 初始化完再扫，命中率更高。 */
+  later(function () { hookAds(); }, 600);
+  later(function () { hookAds(); }, 2500);
+  later(function () { hookAds(); }, 6000);
+
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+    // ===== /HM COMMON INLINE =====
     var busy = 0;
     if (G.__hmCollapsed === undefined) G.__hmCollapsed = true;
 
@@ -56,19 +282,15 @@ try {
     }
     hmVideo.__hm = 1;
 
+    // 实际接管逻辑在通用层（common.js）里：
+    //   - 平台对象上的 playVideo / playVideo_pre
+    //   - globalThis 树里其它标准广告 API
+    // 这里只做转发，顺带兼容旧的调用点。
     G.__hmAdHook = function () {
-      var gg = G.__hmgg || G.gg || (G.GameGlobal && G.GameGlobal.gg) || null;
-      if (!gg || !gg.platform) { G.__hmAdOn = 0; return 0; }
-      var p = gg.platform;
       try {
-        if (typeof p.playVideo_pre !== 'function' || !p.playVideo_pre.__hm) p.playVideo_pre = hmPre;
-        if (typeof p.playVideo !== 'function' || !p.playVideo.__hm) {
-          if (typeof p.playVideo === 'function') p.__hmRealVideo = p.playVideo;
-          p.playVideo = hmVideo;
-        }
-        G.__hmAdOn = 1;
-        return 1;
-      } catch (e) { G.__hmAdOn = 0; return 0; }
+        if (typeof G.__hmHookAds === 'function') return G.__hmHookAds();
+      } catch (e) {}
+      return G.__hmAdOn || 0;
     };
 
     // ------------------------------------------------------------ 兵种
@@ -386,6 +608,27 @@ try {
     // ------------------------------------------------------------ 可配置项
     // 数值目标（输入框可直接改）+ 各功能开关。挂在 globalThis 上，
     // 面板重建/场景切换都不会丢。
+    /*
+     * 模式自适应
+     * ---------------------------------------------------------------
+     * 注入发生在 bundle 编译之后、游戏执行之前，那时 __hmg 还不存在，
+     * 所以不能在这里一次性判断。改成：
+     *   - 布局配置做成函数，缺省时按当前模式构建
+     *   - 探针的定时器持续检测 __hmg，一旦出现就切到适配模式并重建面板
+     */
+    G.__hmApplyMode = function () {
+      var adapted = 0;
+      try { adapted = (G.__hmg && G.__hmg.playerInfo) ? 1 : 0; } catch (e) {}
+      var mode = adapted ? 'adapted' : 'common';
+      if (mode === G.__hmMode) return 0;
+      G.__hmMode = mode;
+      G.__hmLayout = null;      // 强制按新模式重建
+      if (adapted) {
+        G.__hmSet = null;        // 换成完整版默认值
+      }
+      return 1;
+    };
+
     if (!G.__hmSet) {
       G.__hmSet = {
         diamond: 888888,
@@ -412,8 +655,12 @@ try {
     // ------------------------------------------------------------ 布局配置
     // 这是"游戏适配层"：告诉通用面板框架要显示什么、每个控件做什么。
     // 换一款游戏时只需改这里 + __hmApply 系列函数，框架本身不用动。
-    if (!G.__hmLayout) {
-      G.__hmLayout = {
+    G.__hmBuildLayout = function () {
+      if (G.__hmMode !== 'adapted') {
+        // 通用模式：只有通用能力
+        return G.__hmCommonLayout;
+      }
+      return {
         sections: [
           {
             title: '冒险数值',
@@ -497,7 +744,9 @@ try {
           }}
         ]
       };
-    }
+    };
+
+    if (!G.__hmLayout) G.__hmLayout = G.__hmBuildLayout();
 
     function setPlayer(fn) {
       var g = G.__hmg;
@@ -1216,6 +1465,13 @@ try {
       try { stage = Laya.stage; } catch (e) {}
       if (!stage || typeof Laya.Sprite !== 'function') return null;
 
+      // 模式变了（通用 <-> 已适配）就丢掉旧面板，下一轮按新布局重建
+      try {
+        if (G.__hmApplyMode && G.__hmApplyMode()) {
+          try { G.__hmDropUI(); } catch (e) {}
+        }
+      } catch (e) {}
+
       var f = collect(stage);
       if (f.body && f.mini) {
         G.__hmBody = f.body;
@@ -1332,6 +1588,16 @@ try {
 
     try { G.__hmdump(); } catch (e) {}
     setInterval(function () { try { G.__hmdump(); } catch (e) {} }, 2500);
+    // 模式检测：注入时 __hmg 还没设置（bundle 尚未执行），
+    // 持续检测它是否出现，一旦出现就切到适配模式并重建面板。
+    setInterval(function () {
+      try {
+        if (G.__hmApplyMode && G.__hmApplyMode()) {
+          G.__hmDropUI();
+          G.__hmUI();
+        }
+      } catch (e) {}
+    }, 1200);
     setInterval(function () { try { G.__hmRefreshUI(); } catch (e) {} }, 600);
     // 战斗内单独跑快循环：2.5s 太慢，血量可能已经被打空
     if (G.__hmBattleAuto === undefined) G.__hmBattleAuto = true;

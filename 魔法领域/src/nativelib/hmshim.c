@@ -106,7 +106,22 @@ static void *build_patched_source(void *src) {
     if (got <= 0) got = n;
     buf[got] = 0;
 
-    if (!strstr(buf, "outDiamondNum")) { free(buf); return NULL; }
+    /*
+     * 两种命中：
+     *   已适配 —— 有 playerInfo 数据结构，能拿到 g 做数值修改
+     *   通用   —— 有广告入口，至少能做去广告
+     * 通用模式额外要求源码够大（主 bundle 才有广告 SDK），
+     * 避免误伤游戏里的小脚本。
+     */
+    int adapted = (strstr(buf, "outDiamondNum") || strstr(buf, "playerInfo")) ? 1 : 0;
+    int generic = 0;
+    if (!adapted) {
+        if (got > 50000 && (strstr(buf, "playVideo") || strstr(buf, "createRewardedVideoAd") ||
+                            strstr(buf, "createInterstitialAd"))) {
+            generic = 1;
+        }
+    }
+    if (!adapted && !generic) { free(buf); return NULL; }
 
     char *last = NULL, *p = buf;
     while ((p = strstr(p, "}();")) != NULL) { last = p; p++; }
@@ -117,10 +132,22 @@ static void *build_patched_source(void *src) {
      * getVipValid() 对 find() 的返回值没做空判断，等级越界会直接抛异常，
      * 所以必须先拿到上限再决定能设到几级。
      */
+    /*
+     * 桥接函数 __hmBridge 定义在**模块作用域内**，因此它能直接访问
+     * 模块里的私有变量（gg / a / g）。通用脚本通过调用它拿到平台对象，
+     * 从而在「未适配」的游戏里也能接管 playVideo 做去广告。
+     * typeof 判断不会抛异常，所以没定义也不会出错。
+     */
     static const char INJ[] =
         ";try{globalThis.__hmg=g}catch(e){globalThis.__hmge=String(e)}"
         ";try{globalThis.__hma=a}catch(e){globalThis.__hae=String(e)}"
-        ";try{globalThis.__hmgg=gg}catch(e){globalThis.__hge=String(e)}";
+        ";try{globalThis.__hmgg=gg}catch(e){globalThis.__hge=String(e)}"
+        ";try{globalThis.__hmBridge=function(){var o={};"
+        "try{o.gg=(typeof gg!=='undefined'?gg:null)}catch(e){}"
+        "try{o.a=(typeof a!=='undefined'?a:null)}catch(e){}"
+        "try{o.g=(typeof g!=='undefined'?g:null)}catch(e){}"
+        "try{o.cfg=(typeof config!=='undefined'?config:null)}catch(e){}"
+        "return o}}catch(e){globalThis.__hmBridge=null}";
     size_t ilen = sizeof(INJ) - 1;
     size_t off = (size_t)(last - buf);
     size_t nlen = (size_t)got + ilen;
@@ -133,7 +160,8 @@ static void *build_patched_source(void *src) {
     free(buf);
 
     g_patch_done = 1;
-    LOGI("source patched n=%d -> %zu at off=%zu", got, nlen, off);
+    LOGI("source patched n=%d -> %zu at off=%zu mode=%s", got, nlen, off,
+         adapted ? "adapted" : "generic");
     void *ns = fn_new_utf8(iso, nb, 0, (int)nlen);
     free(nb);
     if (!ns) LOGE("patch: NewFromUtf8 failed");
@@ -301,6 +329,60 @@ static long long g_last_inject_ms = 0;
  */
 #include "inj_gen.h"
 
+/*
+ * 运行时脚本加载
+ * ---------------------------------------------------------------
+ * 目的：让注入脚本可以热更新 —— App 从仓库拉到新脚本后写到约定路径，
+ * 重启游戏即生效，不需要重新编译 .so，也不需要更新 App。
+ *
+ * 查找顺序：
+ *   1) /data/data/tv.danmaku.bili/files/hm_inject.js   （LSPosed/Zygisk 放的）
+ *   2) /storage/emulated/0/Android/data/tv.danmaku.bili/files/hm_inject.js
+ *                                                       （App 可写，外部目录）
+ *   3) /data/local/tmp/hm_inject.js                     （adb push 兜底）
+ *   4) 编译期内嵌的 INJ_JS                              （最终兜底）
+ *
+ * 读到的文件必须含 __hmw 标记，否则当成垃圾文件跳过 —— 避免
+ * 写坏了脚本直接把游戏顶崩。
+ */
+static char *g_script_buf = NULL;
+static const char *g_script_path = NULL;
+
+static const char *load_runtime_script(void) {
+    if (g_script_buf) return g_script_buf;
+
+    static const char *PATHS[] = {
+        "/data/data/tv.danmaku.bili/files/hm_inject.js",
+        "/storage/emulated/0/Android/data/tv.danmaku.bili/files/hm_inject.js",
+        "/data/local/tmp/hm_inject.js",
+        NULL
+    };
+    for (int i = 0; PATHS[i]; i++) {
+        FILE *f = fopen(PATHS[i], "rb");
+        if (!f) continue;
+        fseek(f, 0, SEEK_END);
+        long sz = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        if (sz < 256 || sz > 4 * 1024 * 1024) { fclose(f); continue; }
+        char *b = (char *)malloc((size_t)sz + 1);
+        if (!b) { fclose(f); continue; }
+        size_t got = fread(b, 1, (size_t)sz, f);
+        fclose(f);
+        b[got] = 0;
+        if (got < 256 || !strstr(b, "__hmw")) {
+            LOGI("runtime script %s rejected (no marker, %zu bytes)", PATHS[i], got);
+            free(b);
+            continue;
+        }
+        g_script_buf = b;
+        g_script_path = PATHS[i];
+        LOGI("runtime script loaded from %s (%zu bytes)", PATHS[i], got);
+        return g_script_buf;
+    }
+    LOGI("runtime script: none, using builtin");
+    return NULL;
+}
+
 static void try_inject(void *ctx) {
     if (!INJECT_ENABLED) return;
     if (!ctx) return;
@@ -315,6 +397,8 @@ static void try_inject(void *ctx) {
     t_in_hook = 1;
 
     const char *js = INJ_JS;
+    const char *rt = load_runtime_script();
+    if (rt) js = rt;
 
     void *iso = fn_isolate_cur();
     if (iso) {

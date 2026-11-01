@@ -16,16 +16,25 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,45 +48,13 @@ import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.ThemeController
 
-/**
- * 一款受支持的小游戏。
- *
- * 新增游戏时只改 [SUPPORTED_GAMES]，界面会自动多出一张卡片。
- * 每款游戏对应的注入细节放在 E:\Tools\BiliBiliweb\<游戏名>\ 里。
- */
-private data class GameEntry(
-    val name: String,
-    val engine: String,
-    val chapter: String,
-    val summary: String,
-    val features: List<String>,
-    val accent: Color,
-)
-
 // miuix 的 CardDefaults.InsideMargin 是 PaddingValues(0.dp)，
 // 不显式指定的话内容会完全贴着卡片边缘。
 private val CARD_PADDING = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
 
-// SmallTitleDefaults.InsideMargin 是 (28dp, 8dp)，页面本身已有 16dp 横向 padding，
-// 叠加后小标题会比卡片多缩进 28dp。这里收窄到与卡片左边缘基本齐平。
+// SmallTitleDefaults.InsideMargin 是 (28.dp, 8.dp)，页面本身已有 16.dp 横向 padding，
+// 叠加后小标题会比卡片多缩进 28.dp。这里收窄到与卡片左边缘基本齐平。
 private val TITLE_PADDING = PaddingValues(horizontal = 2.dp, vertical = 8.dp)
-
-private val SUPPORTED_GAMES = listOf(
-    GameEntry(
-        name = "魔法领域",
-        engine = "Laya",
-        chapter = "第 10 章 驯兽师",
-        summary = "跑在 libMiniEngine.so 内嵌 V8 里，数据单例藏在模块 IIFE 闭包中，" +
-            "通过改写 Script::Compile 的源码把它暴露到 globalThis 后再改。",
-        features = listOf(
-            "钻石 / 木材 / 石头 / 竞技币 / 神石",
-            "VIP 等级、神格、体力、经验",
-            "兵种与英雄满级、天赋全满",
-            "免广告直接领奖励、一键写入存档",
-        ),
-        accent = Color(0xFF2C6BED),
-    ),
-)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,8 +79,39 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun HomeScreen() {
     val cs = MiuixTheme.colorScheme
+    val context = LocalContext.current
+
+    // 目录来自仓库的 catalog.json —— 新增游戏只要改仓库，App 不用重新发布
+    var catalog by remember { mutableStateOf(CatalogRepo.cached(context)) }
+    var loading by remember { mutableStateOf(true) }
+    var refreshKey by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(refreshKey) {
+        loading = true
+        // 先用缓存顶上，再等远端结果替换掉
+        catalog = CatalogRepo.cached(context) ?: catalog
+        catalog = CatalogRepo.load(context)
+        loading = false
+    }
+
     Scaffold(
-        topBar = { TopAppBar(title = "HM 小游戏工具") },
+        topBar = {
+            TopAppBar(
+                title = "HM 小游戏工具",
+                actions = {
+                    // 用文字而不是图标：miuix 的 Icon 只接受 ImageVector，
+                    // 为了一个刷新按钮引入 material-icons 不划算
+                    Text(
+                        text = if (loading) "拉取中…" else "刷新",
+                        modifier = Modifier
+                            .clickable(enabled = !loading) { refreshKey++ }
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        fontSize = 14.sp,
+                        color = if (loading) cs.onSurfaceVariantSummary else cs.onSurface,
+                    )
+                },
+            )
+        },
         containerColor = cs.surface,
     ) { padding ->
         Column(
@@ -115,9 +123,19 @@ private fun HomeScreen() {
                 .padding(top = 8.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            StatusCard()
+            StatusCard(catalog = catalog, loading = loading)
             SmallTitle("支持的游戏", insideMargin = TITLE_PADDING)
-            SUPPORTED_GAMES.forEach { game -> GameCard(game) }
+            val games = catalog?.games.orEmpty()
+            if (games.isEmpty()) {
+                Text(
+                    text = if (loading) "正在拉取目录…" else "暂时拿不到游戏目录",
+                    modifier = Modifier.fillMaxWidth(),
+                    fontSize = 14.sp,
+                    color = cs.onSurfaceVariantSummary,
+                )
+            } else {
+                games.forEach { game -> GameCard(game) }
+            }
             SmallTitle("使用前提", insideMargin = TITLE_PADDING)
             HintCard()
             Spacer(Modifier.height(8.dp))
@@ -126,7 +144,7 @@ private fun HomeScreen() {
 }
 
 @Composable
-private fun StatusCard() {
+private fun StatusCard(catalog: Catalog?, loading: Boolean) {
     val cs = MiuixTheme.colorScheme
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -170,6 +188,18 @@ private fun StatusCard() {
         InfoRow("目标应用", "哔哩哔哩（tv.danmaku.bili）")
         InfoRow("目标进程", "tv.danmaku.bili:web")
         InfoRow("作用域", "只需勾选主包，无需勾选子进程")
+        InfoRow(
+            label = "游戏目录",
+            value = when {
+                loading -> "拉取中…"
+                catalog == null -> "未获取"
+                catalog.source == "remote" ->
+                    "仓库 v" + catalog.version +
+                        (if (catalog.updatedAt.isNotBlank()) " · " + catalog.updatedAt.take(10) else "")
+                catalog.source == "cache" -> "本地缓存"
+                else -> "内置数据"
+            },
+        )
       }
     }
 }
@@ -196,6 +226,10 @@ private fun InfoRow(label: String, value: String) {
 @Composable
 private fun GameCard(game: GameEntry) {
     val cs = MiuixTheme.colorScheme
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var scriptState by remember(game.id) { mutableStateOf("") }
+    var scriptBusy by remember(game.id) { mutableStateOf(false) }
     Card(
         modifier = Modifier.fillMaxWidth(),
         insideMargin = CARD_PADDING,
@@ -237,17 +271,24 @@ private fun GameCard(game: GameEntry) {
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            val tagText: String
+            val tagColor: Color
+            when (game.status) {
+                "full" -> { tagText = "已支持"; tagColor = game.accent }
+                "planned" -> { tagText = "计划中"; tagColor = Color(0xFF8A93A6) }
+                else -> { tagText = "通用去广告"; tagColor = Color(0xFF5C8CC0) }
+            }
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .background(game.accent.copy(alpha = 0.14f))
+                    .background(tagColor.copy(alpha = 0.14f))
                     .padding(horizontal = 9.dp, vertical = 4.dp),
             ) {
                 Text(
-                    text = "已支持",
+                    text = tagText,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    color = game.accent,
+                    color = tagColor,
                 )
             }
         }
@@ -260,6 +301,58 @@ private fun GameCard(game: GameEntry) {
             lineHeight = 19.sp,
             color = cs.onSurfaceVariantSummary,
         )
+
+        // 注入脚本：可以从仓库直接更新，不用重新发布 App
+        if (game.scriptUrl != null) {
+            Spacer(Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "注入脚本",
+                        fontSize = 12.sp,
+                        color = cs.onSurfaceVariantSummary,
+                    )
+                    Text(
+                        text = if (scriptState.isBlank()) "仓库版本" else scriptState,
+                        fontSize = 13.sp,
+                        color = cs.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = if (scriptBusy) "处理中…" else "更新脚本",
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(game.accent.copy(alpha = 0.14f))
+                        .clickable(enabled = !scriptBusy) {
+                            scriptBusy = true
+                            scriptState = ""
+                            scope.launch {
+                                val r = ScriptRepo.download(context, game.scriptUrl)
+                                val msg = r.fold(
+                                    onSuccess = { f ->
+                                        ScriptRepo.deploy(context, f).fold(
+                                            onSuccess = { "已部署 " + f.length() + " 字节，重启游戏生效" },
+                                            onFailure = { "下载成功但部署失败：" + (it.message ?: "未知错误") },
+                                        )
+                                    },
+                                    onFailure = { "下载失败：" + (it.message ?: "未知错误") },
+                                )
+                                scriptState = msg
+                                scriptBusy = false
+                            }
+                        }
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                    fontSize = 13.sp,
+                    color = game.accent,
+                )
+            }
+        }
 
         Spacer(Modifier.height(10.dp))
         game.features.forEach { line ->
