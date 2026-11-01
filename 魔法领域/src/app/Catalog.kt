@@ -1,6 +1,7 @@
 package com.hm.xposed
 
 import android.content.Context
+import android.util.Log
 import android.graphics.Color as AndroidColor
 import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.Dispatchers
@@ -51,6 +52,8 @@ data class Catalog(
  */
 object CatalogRepo {
 
+    private const val TAG = "HMCatalog"
+
     private const val REPO = "MCheng404/bilibili-minigame-research"
 
     private val SOURCES = listOf(
@@ -90,33 +93,47 @@ object CatalogRepo {
     /**
      * 拉远端目录。三个源并行请求，取最先成功的那个；
      * 全失败则退回缓存，再退回内置数据。
+     *
+     * 注意：这里不能写成 `return@coroutineScope parsed` ——
+     * 那样只是从 coroutineScope 的 lambda 返回，值会被 withContext 的
+     * 「块最后一句表达式」覆盖掉，远端结果等于白拉。
+     * 所以用变量把结果带出来。
      */
     suspend fun load(context: Context): Catalog = withContext(Dispatchers.IO) {
+        var remote: Catalog? = null
         coroutineScope {
             val pending = SOURCES.map { src -> async(Dispatchers.IO) { src to fetch(src) } }
             for (d in pending) {
                 val json = d.await()?.second ?: continue
                 val parsed = parse(json) ?: continue
                 writeCache(context, json)
-                return@coroutineScope parsed.copy(source = "remote")
+                remote = parsed
+                break
             }
         }
-        readCache(context)?.copy(source = "cache")
+        remote?.copy(source = "remote")
+            ?: readCache(context)?.copy(source = "cache")
             ?: Catalog(0, "内置数据", BUILTIN, "builtin")
     }
 
     private fun fetch(url: String): String? = try {
+        Log.i(TAG, "GET $url")
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 8000
         conn.readTimeout = 8000
         conn.setRequestProperty("Accept", "application/json")
         conn.setRequestProperty("User-Agent", "HM-MiniGame-Tool")
-        if (conn.responseCode in 200..299) {
-            conn.inputStream.bufferedReader().use { r: BufferedReader -> r.readText() }
+        val code = conn.responseCode
+        if (code in 200..299) {
+            val body = conn.inputStream.bufferedReader().use { r: BufferedReader -> r.readText() }
+            Log.i(TAG, "  -> $code, ${body.length} bytes")
+            body
         } else {
+            Log.w(TAG, "  -> HTTP $code")
             null
         }
     } catch (e: Exception) {
+        Log.w(TAG, "  -> FAILED: ${e.javaClass.simpleName}: ${e.message}")
         null
     }
 

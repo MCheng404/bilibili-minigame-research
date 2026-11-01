@@ -59,17 +59,16 @@ object ScriptRepo {
      * 部署到游戏目录。
      *
      * 需要 root：App 没有权限写别的 App 的 data 目录。
-     * 用 --reference 对齐属主，避免 bilibili 的 uid 变化后失效。
+     * 属主用**目标目录本身的 uid/gid** 对齐 —— Android 的 toybox chown
+     * 不支持 --reference，而且 bilibili 的 uid 是动态分配的，不能写死。
      */
     suspend fun deploy(context: Context, file: File): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
-            val cmd = listOf(
-                "su", "-c",
-                "cp '${file.absolutePath}' '$TARGET' && " +
-                    "chown --reference='$REF' '$TARGET' && " +
-                    "chmod 644 '$TARGET' && " +
-                    "ls -la '$TARGET'"
-            )
+            val d = TARGET.substringBeforeLast('/')
+            val sh = "cp '${file.absolutePath}' '$TARGET' && " +
+                "chown \$(stat -c %u '$d'):\$(stat -c %g '$d') '$TARGET' && " +
+                "chmod 644 '$TARGET' && ls -la '$TARGET'"
+            val cmd = listOf("su", "-c", sh)
             val p = ProcessBuilder(cmd).start()
             val out = p.inputStream.bufferedReader().readText()
             val err = p.errorStream.bufferedReader().readText()
@@ -85,6 +84,9 @@ object ScriptRepo {
     }
 
     /** 给用户看的手动部署命令 */
-    fun manualCommand(localPath: String): String =
-        "adb push $localPath $TARGET && adb shell su -c 'chown --reference=$REF $TARGET'"
+    fun manualCommand(localPath: String): String {
+        val d = TARGET.substringBeforeLast('/')
+        return "adb push $localPath $TARGET && " +
+            "adb shell su -c 'chown \$(stat -c %u $d):\$(stat -c %g $d) $TARGET'"
+    }
 }

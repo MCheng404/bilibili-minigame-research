@@ -116,8 +116,14 @@ static void *build_patched_source(void *src) {
     int adapted = (strstr(buf, "outDiamondNum") || strstr(buf, "playerInfo")) ? 1 : 0;
     int generic = 0;
     if (!adapted) {
-        if (got > 50000 && (strstr(buf, "playVideo") || strstr(buf, "createRewardedVideoAd") ||
-                            strstr(buf, "createInterstitialAd"))) {
+        /*
+         * 通用模式的门槛要够严：改写源码是在 IIFE 函数体里插语句，
+         * 插错位置会直接让整个 bundle 语法错误、游戏起不来。
+         * 所以要求：体积够大（主 bundle）+ 是 Laya 引擎 + 有广告入口。
+         */
+        if (got > 50000 && (strstr(buf, "Laya.") || strstr(buf, "laya.")) &&
+            (strstr(buf, "playVideo") || strstr(buf, "createRewardedVideoAd") ||
+             strstr(buf, "createInterstitialAd"))) {
             generic = 1;
         }
     }

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -229,6 +230,7 @@ private fun GameCard(game: GameEntry) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var scriptState by remember(game.id) { mutableStateOf("") }
+    var scriptCmd by remember(game.id) { mutableStateOf("") }
     var scriptBusy by remember(game.id) { mutableStateOf(false) }
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -315,13 +317,25 @@ private fun GameCard(game: GameEntry) {
                         fontSize = 12.sp,
                         color = cs.onSurfaceVariantSummary,
                     )
-                    Text(
-                        text = if (scriptState.isBlank()) "仓库版本" else scriptState,
-                        fontSize = 13.sp,
-                        color = cs.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    // 长按可复制：部署失败时把命令和错误一起复制走
+                    SelectionContainer {
+                        Text(
+                            text = if (scriptState.isBlank()) "仓库版本" else scriptState,
+                            fontSize = 13.sp,
+                            color = if (scriptState.startsWith("已部署")) cs.onSurface else Color(0xFFE08A6B),
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    if (scriptCmd.isNotBlank()) {
+                        Text(
+                            text = scriptCmd,
+                            fontSize = 11.sp,
+                            color = cs.onSurfaceVariantSummary,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
                 Spacer(Modifier.width(10.dp))
                 Text(
@@ -337,11 +351,20 @@ private fun GameCard(game: GameEntry) {
                                 val msg = r.fold(
                                     onSuccess = { f ->
                                         ScriptRepo.deploy(context, f).fold(
-                                            onSuccess = { "已部署 " + f.length() + " 字节，重启游戏生效" },
-                                            onFailure = { "下载成功但部署失败：" + (it.message ?: "未知错误") },
+                                            onSuccess = {
+                                                scriptCmd = ""
+                                                "已部署 " + f.length() + " 字节，重启游戏生效"
+                                            },
+                                            onFailure = {
+                                                scriptCmd = ScriptRepo.manualCommand(f.absolutePath)
+                                                "部署失败（需要 root）：" + (it.message ?: "未知错误")
+                                            },
                                         )
                                     },
-                                    onFailure = { "下载失败：" + (it.message ?: "未知错误") },
+                                    onFailure = {
+                                        scriptCmd = ""
+                                        "下载失败：" + (it.message ?: "未知错误")
+                                    },
                                 )
                                 scriptState = msg
                                 scriptBusy = false
