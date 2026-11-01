@@ -222,6 +222,19 @@ try {
       G.__hmUnitCount = units;
       G.__hmBattleOn_ = 1;
       try { G.__hmApplySpeed(); } catch (e) {}
+
+      // ---------------------------------------------------- 三选一场景次数
+      // 游戏原生：战斗初始化时 s.getallCount = 1，所以「全都要」每场战斗
+      // 只能点一次（按钮显示条件 getallCount > 0，点击时 getallCount--）。
+      // 这里维持一个正值，按钮就常显、次数用不完；下一个战斗场景重建
+      // battleSave 后会被重新赋回 1，500ms 循环再拉起来。
+      if (SET.getAllNum > 0) {
+        try { b.getallCount = SET.getAllNum; } catch (e) {}
+      }
+      // 「换一批」免费次数，同一套机制
+      if (SET.refreshNum > 0) {
+        try { b.freeRefCount = SET.refreshNum; } catch (e) {}
+      }
       return n;
     };
 
@@ -348,6 +361,8 @@ try {
         vip: 10,
         roleLimit: 20,
         speed: 1.62,       // 游戏倍速挡位（1.31/1.62/3/4）
+        getAllNum: 999,     // 三选一场景「全都要」可用次数（0 = 走原逻辑，每战 1 次）
+        refreshNum: 99,     // 三选一场景「换一批」免费次数（0 = 走原逻辑）
         btGold: true,      // 局内金币
         btHp: true,        // 我方血量/人数
         btHero: true,      // 英雄四维与法力
@@ -405,6 +420,16 @@ try {
               },
               { t: 'num', label: '上阵上限', key: 'roleLimit', apply: function (v) {
                 setPlayer(function (P) { if (P.battleSave) P.battleSave.roleLimitNum = v; });
+              }},
+              { t: 'num', label: '全都要次数', key: 'getAllNum', apply: function (v) {
+                setPlayer(function (P) {
+                  if (P.battleSave && v > 0) P.battleSave.getallCount = v;
+                });
+              }},
+              { t: 'num', label: '换一批次数', key: 'refreshNum', apply: function (v) {
+                setPlayer(function (P) {
+                  if (P.battleSave && v > 0) P.battleSave.freeRefCount = v;
+                });
               }},
               { t: 'sw', label: '无限金币', key: 'btGold' },
               { t: 'sw', label: '无限血量/人数', key: 'btHp' },

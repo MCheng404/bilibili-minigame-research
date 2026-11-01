@@ -62,6 +62,8 @@ globalThis.__hma = {
 g.playerInfo.battleSave = {
   goldNow: 0,
   roleLimitNum: 6,
+  getallCount: 1,
+  freeRefCount: 3,
   heroSaveInfo: { mp_now: 30, mp_max: 30, atk: 12, def: 8, str: 8, int: 8 }
 };
 const ally = { teamId: 0, life_per: 100, life_max: 300, life_now: 200, roleNum: 2, roleNum_init: 3 };
@@ -110,6 +112,14 @@ setTimeout(() => {
   console.log('hero    = atk', P.battleSave.heroSaveInfo.atk, 'mp', P.battleSave.heroSaveInfo.mp_now + '/' + P.battleSave.heroSaveInfo.mp_max);
   console.log('ally    = life_now', A.life_now, '/', A.life_max, '| life_per', A.life_per, '| roleNum', A.roleNum);
   console.log('foe     = life_now', F.life_now, '/', F.life_max, '| life_per', F.life_per, '(应保持 100 不变)');
+  console.log('--- 三选一场景次数 ---');
+  console.log('getallCount  =', P.battleSave.getallCount, '(应为 999)');
+  console.log('freeRefCount =', P.battleSave.freeRefCount, '(应为 99)');
+  // 模拟玩家点了「全都要」：游戏内部会 getallCount--
+  P.battleSave.getallCount--;
+  console.log('点击后       =', P.battleSave.getallCount);
+  globalThis.__hmBattle();
+  console.log('循环恢复后   =', P.battleSave.getallCount, '(应重新回到 999)');
   console.log('--- 倍速 ---');
   globalThis.__hmApplySpeed();
   console.log('speed   =', globalThis.__hma.gameSpeed_normal, '/', globalThis.__hma.gameSpeed_double, '| Laya.timer.scale =', globalThis.Laya.timer.scale);
