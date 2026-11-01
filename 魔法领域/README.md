@@ -27,6 +27,7 @@
 | `src/nativelib/hmshim.c` | 注入库源码（定位引擎、hook、源码改写、探针注入） |
 | `src/zyginject/` | Zygisk 注入模块（`zygisk_main.cpp` + 官方 `zygisk.hpp` + `pack.py`），与 LSPosed 方案二选一 |
 | `src/app/` | LSPosed 模块的配置界面（`MainActivity.kt` + 构建配置 + 清单 + 作用域数组） |
+| `src/nativelib/inj.js` | 游戏内探针（v12）：养成数值 + 战斗强化 + 可折叠悬浮面板 |
 | `src/nativelib/inj.js` | 游戏内探针 + 悬浮面板源码 |
 | `src/nativelib/inj_gen.h` | 由 `inj.js` 自动生成的 C 字符串头文件 |
 | `src/build_inj.py` | `inj.js` → `inj_gen.h` 转换脚本 |
@@ -107,6 +108,25 @@ static PlayerInfo_save() {
 登录时 `gg.platform.login()` 返回 `saveData`，用 `userSave_encryption` 解密后
 赋给 `playerInfo`；`s.sVersion == e` 才复用存档，登录后强制 `sVersion = e`，
 因此存档是持久的。**只要触发一次 `PlayerInfo_save()`，服务端存下的就是修改后的值。**
+
+### 战斗内强化
+
+`playerInfo.battleSave` 只在战斗中非空。单位为挂在节点 `_components` 上的 Script：
+
+```js
+life_per  // 单兵血量
+life_max  // 总血量 = roleNum × life_per
+life_now  // 当前总血量
+roleNum   // 剩余数量
+teamId    // 0 = 我方，1 = 敌方
+```
+
+受击时游戏自己算 `roleNum = ceil(life_now / life_per)`，**掉血即掉人**。
+所以「无限血量」和「人数不减」是同一件事：放大 `life_per` + 回满 `life_now`，
+只补血量不放大 `life_per` 会被单次高伤直接判死。
+
+当前写入：局内金币 999999、上阵上限 20、英雄法力 9999、英雄四维 9999、
+我方单位血量 ×50 且回满，刷新频率 500ms（主循环 2.5s 太慢）。
 
 ### 悬浮面板
 

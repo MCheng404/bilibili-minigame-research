@@ -31,7 +31,10 @@ const g = { playerInfo: {
   power: 3, godLevel_big: 0, godLevel_small: 0, godExp: 0,
   campCoinNum: [0, 0, 0, 0, 0],
   outCampInfo: [{ roleId: 1, level: 3 }],
-  outHeroList: [{ id: 901, level: 1, isUnlock: true }, { id: 902, level: 1, isUnlock: false }]
+  outHeroList: [
+    { id: 901, level: 1, isUnlock: true, talentList: [[10101, 1], [10102, 1]], equipSkillList: [99999] },
+    { id: 902, level: 1, isUnlock: false, talentList: [[10103, 1]], equipSkillList: [] }
+  ]
 } };
 
 const stage = new LSprite();
@@ -46,6 +49,20 @@ globalThis.__hma = {
   hero_upCost: Array.from({ length: 60 }, (_, i) => ({ level: i + 1 })),
   powerCfg: { max: 120, consume: 6, value: 1, cd: 5 }
 };
+// 战斗数据
+g.playerInfo.battleSave = {
+  goldNow: 0,
+  roleLimitNum: 6,
+  heroSaveInfo: { mp_now: 30, mp_max: 30, atk: 12, def: 8, str: 8, int: 8 }
+};
+const ally = { teamId: 0, life_per: 100, life_max: 300, life_now: 200, roleNum: 2, roleNum_init: 3 };
+const foe = { teamId: 1, life_per: 100, life_max: 300, life_now: 300, roleNum: 3, roleNum_init: 3 };
+const battleNode = new LSprite();
+battleNode._components = [ally, foe];
+stage.addChild(battleNode);
+globalThis.__ally = ally;
+globalThis.__foe = foe;
+
 globalThis.__hmgg = {
   platform: {
     config: { videoId: 'x' },
@@ -75,6 +92,15 @@ setTimeout(() => {
   console.log('god     =', P.godLevel_big + '.' + P.godLevel_small);
   console.log('campCoin=', P.campCoinNum.join(','));
   console.log('heroLv  =', P.outHeroList.map(x => x.level).join(','), 'max', globalThis.__hmHeroMax);
+  console.log('heroAtk =', P.outHeroList.map(x => x.atk + '/' + x.def + '/' + x.str + '/' + x.int).join(' | '));
+  console.log('talent  =', JSON.stringify(P.outHeroList.map(x => x.talentList)));
+  globalThis.__hmBattle();
+  const A = globalThis.__ally, F = globalThis.__foe;
+  console.log('--- 战斗 ---');
+  console.log('gold    =', P.battleSave.goldNow, '| limit =', P.battleSave.roleLimitNum);
+  console.log('hero    = atk', P.battleSave.heroSaveInfo.atk, 'mp', P.battleSave.heroSaveInfo.mp_now + '/' + P.battleSave.heroSaveInfo.mp_max);
+  console.log('ally    = life_now', A.life_now, '/', A.life_max, '| life_per', A.life_per, '| roleNum', A.roleNum);
+  console.log('foe     = life_now', F.life_now, '/', F.life_max, '| life_per', F.life_per, '(应保持 100 不变)');
   console.log('heroUnlock =', P.outHeroList.filter(x => x.isUnlock).length, '/', P.outHeroList.length);
   console.log('godExp  =', P.godExp, '| devilProp =', P.devilProp, '| pvpScore =', P.pvpScore);
   console.log('vip =', P.vipLv, '| wood =', P.woodNum, '| stone =', P.stoneNum);

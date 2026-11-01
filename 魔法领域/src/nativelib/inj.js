@@ -1,4 +1,4 @@
-// 注入探针 v9 —— 放大版面板 + 扩展可改数值
+// 注入探针 v12 —— 养成 + 战斗双模式
 //
 // native 层改写游戏 bundle 源码后挂到 globalThis：
 //   __hmg  = 玩家数据单例 g
@@ -13,8 +13,8 @@
 //   神格    -> godLevel_small 必须 0..5，累计到 6 会自动进位 big+1
 try {
   var G = (typeof globalThis !== 'undefined') ? globalThis : this;
-  if (!G.__hmw9) {
-    G.__hmw9 = 1;
+  if (!G.__hmw12) {
+    G.__hmw12 = 1;
     var busy = 0;
     if (G.__hmCollapsed === undefined) G.__hmCollapsed = true;
 
@@ -95,6 +95,11 @@ try {
     };
 
     // ------------------------------------------------------------ 英雄
+    // 英雄属性（atk/def/str/int）与 level 分开存储，只改 level 界面数字不会动。
+    // 四项必须同值：升级逻辑里有防作弊判断 Math.min(atk,def,int,str)，
+    // level>30 时 atk>3.5*p 会触发成长惩罚；全相等时永不触发。
+    var HERO_ATTR = 9999;
+
     G.__hmApplyHeroes = function () {
       var g = G.__hmg;
       if (!g || !g.playerInfo) return 0;
@@ -109,9 +114,104 @@ try {
         try {
           arr[i].level = max;
           arr[i].sliceNum = 99999;
+          arr[i].atk = HERO_ATTR;
+          arr[i].def = HERO_ATTR;
+          arr[i].str = HERO_ATTR;
+          arr[i].int = HERO_ATTR;
           n++;
         } catch (e) {}
       }
+      return n;
+    };
+
+    // ------------------------------------------------------------ 天赋
+    // talentList 格式 [[talentId, level], ...]，升级时 s ? s[1]++ : push([id,1])。
+    // 等级上限硬编码为 3（天赋弹窗里 Math.min(talentDataLevel, 3)）。
+    // 战斗读取走 battleSave.heroSaveInfo.talentList，那份是开战时复制的。
+    var TALENT_MAX = 3;
+
+    G.__hmApplyTalents = function () {
+      var g = G.__hmg;
+      if (!g || !g.playerInfo) return 0;
+      var arr = g.playerInfo.outHeroList;
+      if (!arr || !arr.length) return 0;
+      var n = 0;
+      for (var i = 0; i < arr.length; i++) {
+        var tl = arr[i].talentList;
+        if (!tl || !tl.length) continue;
+        for (var j = 0; j < tl.length; j++) {
+          try {
+            if (tl[j] && tl[j].length >= 2) { tl[j][1] = TALENT_MAX; n++; }
+          } catch (e) {}
+        }
+      }
+      return n;
+    };
+
+    // ------------------------------------------------------------ 战斗内
+    // 单位是挂在节点上的 Laya Script，字段：
+    //   life_per 单兵血量  life_max/life_now 总血量  roleNum 剩余数量
+    //   teamId 0=我方 1=敌方
+    // 受击后游戏自己算 roleNum = ceil(life_now / life_per)，数量随血量下降，
+    // 所以把 life_per 放大 + life_now 回满，就能同时做到不掉血和不减员。
+    function eachUnit(fn) {
+      var stage = null;
+      try { stage = Laya.stage; } catch (e) {}
+      if (!stage) return 0;
+      var stack = [stage], guard = 0, n = 0;
+      while (stack.length && guard++ < 6000) {
+        var node = stack.pop();
+        if (!node) continue;
+        try {
+          var cs = node._components;
+          if (cs) {
+            for (var i = 0; i < cs.length; i++) {
+              var c = cs[i];
+              if (c && typeof c.life_now === 'number' && typeof c.life_max === 'number'
+                    && typeof c.life_per === 'number') {
+                fn(c);
+                n++;
+              }
+            }
+          }
+        } catch (e) {}
+        try {
+          var k = node.numChildren | 0;
+          for (var j = 0; j < k; j++) stack.push(node.getChildAt(j));
+        } catch (e) {}
+      }
+      return n;
+    }
+
+    G.__hmBattle = function () {
+      var g = G.__hmg;
+      if (!g || !g.playerInfo) return 0;
+      var b = g.playerInfo.battleSave;
+      if (!b) { G.__hmBattleOn_ = 0; return 0; }
+      var n = 0;
+      try { if (b.goldNow !== 999999) { b.goldNow = 999999; n++; } } catch (e) {}
+      try { b.roleLimitNum = 20; n++; } catch (e) {}
+      try {
+        var h = b.heroSaveInfo;
+        if (h) {
+          h.mp_max = 9999; h.mp_now = 9999;
+          h.atk = HERO_ATTR; h.def = HERO_ATTR;
+          h.str = HERO_ATTR; h.int = HERO_ATTR;
+          n++;
+        }
+      } catch (e) {}
+      var units = eachUnit(function (u) {
+        if (u.teamId !== 0) return;              // 只强化我方
+        try {
+          if (!u.__hmBoost) { u.__hmBoost = 1; u.life_per = Math.max(1, u.life_per) * 50; }
+          var cnt = u.roleNum_init || u.roleNum || 1;
+          u.life_max = cnt * u.life_per;
+          u.life_now = u.life_max;
+          u.roleNum = cnt;
+        } catch (e) {}
+      });
+      G.__hmUnitCount = units;
+      G.__hmBattleOn_ = 1;
       return n;
     };
 
@@ -167,6 +267,7 @@ try {
 
       n += G.__hmApplyRoles();
       n += G.__hmApplyHeroes();
+      n += G.__hmApplyTalents();
       return n;
     };
 
@@ -285,7 +386,7 @@ try {
       G.__hmMini = mini;
 
       // 展开态：放大到 300 x 452
-      var W = 300, H = 452;
+      var W = 300, H = 520;
       var body = new Laya.Sprite();
       body.name = 'hmBody';
       body.size(W, H);
@@ -361,43 +462,68 @@ try {
         for (var i = 0; i < arr.length; i++) if (arr[i].level > mx) mx = arr[i].level;
         return arr.length + '个 / Lv' + mx;
       });
+      addRow('天赋', function (P) {
+        var arr = P.outHeroList || [];
+        if (!arr.length) return '无';
+        var tot = 0, mx = 0;
+        for (var i = 0; i < arr.length; i++) {
+          var tl = arr[i].talentList || [];
+          tot += tl.length;
+          for (var j = 0; j < tl.length; j++) if (tl[j] && tl[j][1] > mx) mx = tl[j][1];
+        }
+        return tot + '个 / Lv' + mx;
+      });
       addRow('免广', function () { return G.__hmAdOn ? '已启用' : '未接管'; });
+      addRow('战斗', function (P) {
+        if (!P.battleSave) return '未进入';
+        return '金币' + P.battleSave.goldNow + ' · 单位' + (G.__hmUnitCount || 0);
+      });
 
-      function mkBtn(label, by, color, cb) {
-        var b = mkBox(body, 14, by, W - 28, 36, color);
-        mkText(b, label, 12, 8, 15, '#FFFFFF');
+      // 两列布局：6 个按钮排 3 行
+      var BW = 132, BX1 = 14, BX2 = 154, BH = 34;
+      function mkBtn(label, bx, by, bw, color, cb) {
+        var b = mkBox(body, bx, by, bw, BH, color);
+        mkText(b, label, 10, 8, 14, '#FFFFFF');
         try { b.on('click', null, cb); } catch (e) {}
         return b;
       }
 
-      mkBtn('全部拉满', y + 2, '#2456B8', function () {
+      mkBtn('全部拉满', BX1, y + 2, BW, '#2456B8', function () {
         var n = G.__hmApply();
         try { G.__hmTitle.text = 'HM 已应用 ' + n + ' 项'; } catch (e) {}
         var fv = findView();
         try { if (fv.view) fv.view.refreshUI(); } catch (e) {}
         try { G.__hmRefreshUI(); } catch (e) {}
       });
-      mkBtn('兵种满级', y + 44, '#7A4BC4', function () {
-        var n = G.__hmApplyRoles();
-        try {
-          G.__hmTitle.text = n > 0 ? ('HM 兵种满级 ' + n + '个/Lv' + G.__hmRoleMax) : 'HM 兵种数据缺失';
-        } catch (e) {}
-        try { G.__hmRefreshUI(); } catch (e) {}
-      });
-      mkBtn('英雄满级', y + 86, '#A8552E', function () {
-        var n = G.__hmApplyHeroes();
-        try {
-          G.__hmTitle.text = n > 0 ? ('HM 英雄满级 ' + n + '个/Lv' + G.__hmHeroMax) : 'HM 英雄数据缺失';
-        } catch (e) {}
-        try { G.__hmRefreshUI(); } catch (e) {}
-      });
-      mkBtn('写入存档', y + 128, '#1F7A4D', function () {
+      mkBtn('写入存档', BX2, y + 2, BW, '#1F7A4D', function () {
         try {
           G.__hmg.PlayerInfo_save();
           G.__hmTitle.text = 'HM 存档已提交';
         } catch (e) {
           try { G.__hmTitle.text = 'HM 存档失败'; } catch (e2) {}
         }
+      });
+      mkBtn('兵种满级', BX1, y + 42, BW, '#7A4BC4', function () {
+        var n = G.__hmApplyRoles();
+        try { G.__hmTitle.text = n > 0 ? ('HM 兵种 Lv' + G.__hmRoleMax + ' x' + n) : 'HM 兵种数据缺失'; } catch (e) {}
+        try { G.__hmRefreshUI(); } catch (e) {}
+      });
+      mkBtn('英雄满级', BX2, y + 42, BW, '#A8552E', function () {
+        var n = G.__hmApplyHeroes();
+        try { G.__hmTitle.text = n > 0 ? ('HM 英雄 Lv' + G.__hmHeroMax + ' x' + n) : 'HM 英雄数据缺失'; } catch (e) {}
+        try { G.__hmRefreshUI(); } catch (e) {}
+      });
+      mkBtn('天赋全满', BX1, y + 82, BW, '#2E8B7A', function () {
+        var n = G.__hmApplyTalents();
+        try { G.__hmTitle.text = n > 0 ? ('HM 天赋 Lv' + TALENT_MAX + ' x' + n) : 'HM 天赋数据缺失'; } catch (e) {}
+        try { G.__hmRefreshUI(); } catch (e) {}
+      });
+      mkBtn('战斗强化', BX2, y + 82, BW, '#B04A6E', function () {
+        var n = G.__hmBattle();
+        try {
+          G.__hmTitle.text = n > 0 ? ('HM 战斗已强化 · 单位' + (G.__hmUnitCount || 0)) : 'HM 未进入战斗';
+        } catch (e) {}
+        try { G.__hmRefreshUI(); } catch (e) {}
       });
 
       G.__hmRoleMax = G.__hmMaxRole();
@@ -471,6 +597,21 @@ try {
             R.campCoins = (P.campCoinNum || []).join(',');
           } catch (e) {}
 
+          try {
+            var bb = P.battleSave;
+            R.bt = bb ? 1 : 0;
+            if (bb) {
+              R.gold = bb.goldNow;
+              R.limit = bb.roleLimitNum;
+              R.unit = G.__hmUnitCount || 0;
+            }
+            try { if (G.__hmBattleAuto) G.__hmBattle(); } catch (e) {}
+            var tl0 = hs && hs.length ? (hs[0].talentList || []) : [];
+            R.talN = tl0.length;
+            R.talLv = 0;
+            for (var tq = 0; tq < tl0.length; tq++) if (tl0[tq] && tl0[tq][1] > R.talLv) R.talLv = tl0[tq][1];
+          } catch (e) {}
+
           try { if (f.view) f.view.refreshUI(); } catch (e) {}
           try { R.t2 = f.lbl ? String(f.lbl.text) : null; } catch (e) {}
         }
@@ -483,7 +624,7 @@ try {
           R.uiDup = cc.removed;
         } catch (e) { R.uierr = String(e); }
       } catch (e) { R.e = String(e); }
-      var s = 'HMR9|' + encodeURIComponent(JSON.stringify(R));
+      var s = 'HMR12|' + encodeURIComponent(JSON.stringify(R));
       var b = new Uint8Array(7000), n2;
       for (n2 = 0; n2 < s.length && n2 < 6980; n2++) b[n2] = s.charCodeAt(n2);
       G.__hmt = b;
@@ -493,5 +634,14 @@ try {
     try { G.__hmdump(); } catch (e) {}
     setInterval(function () { try { G.__hmdump(); } catch (e) {} }, 2500);
     setInterval(function () { try { G.__hmRefreshUI(); } catch (e) {} }, 600);
+    // 战斗内单独跑快循环：2.5s 太慢，血量可能已经被打空
+    if (G.__hmBattleAuto === undefined) G.__hmBattleAuto = true;
+    setInterval(function () {
+      try {
+        if (!G.__hmBattleAuto) return;
+        var g = G.__hmg;
+        if (g && g.playerInfo && g.playerInfo.battleSave) G.__hmBattle();
+      } catch (e) {}
+    }, 500);
   }
 } catch (e) {}
