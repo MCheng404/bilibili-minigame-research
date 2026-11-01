@@ -17,6 +17,7 @@
 | [04-踩坑记录.md](./04-踩坑记录.md) | 21 个实际踩过的坑与判断依据 |
 | [05-配套App.md](./05-配套App.md) | LSPosed 模块的配置界面：Miuix UI、作用域推荐、构建要点 |
 | [06-悬浮面板框架.md](./06-悬浮面板框架.md) | 游戏内悬浮修改器的通用框架：主题、组件、布局 API、圆角实现、踩坑 |
+| [07-通用脚本与远程化.md](./07-通用脚本与远程化.md) | 通用脚本（未适配游戏去广告）、运行时脚本加载、App 拉取仓库机制 |
 
 ## 资源
 
@@ -28,11 +29,16 @@
 | `src/nativelib/hmshim.c` | 注入库源码（定位引擎、hook、源码改写、探针注入） |
 | `src/zyginject/` | Zygisk 注入模块（`zygisk_main.cpp` + 官方 `zygisk.hpp` + `pack.py`），与 LSPosed 方案二选一 |
 | `src/app/` | LSPosed 模块的配置界面（`MainActivity.kt` + 构建配置 + 清单 + 作用域数组） |
-| `src/nativelib/inj.js` | 游戏内探针（v15）：养成数值 + 战斗强化 + 倍速 + 复活次数 |
+| `src/nativelib/inj.js` | 游戏内探针（v16）：通用层 + 魔法领域适配层 |
+| `src/nativelib/common.js` | **通用脚本**：未适配游戏的基础去广告（可独立分发） |
+| `src/test_common.js` | 通用模式专项测试：桥接接管、全局扫描、模式切换 |
 | `src/nativelib/ui_block.js` | **通用悬浮面板框架**（跨游戏共用，配置驱动） |
 | `src/render_panel.js` | 面板预览渲染器：mock 构建 → SVG，脱离游戏看 UI |
 | `src/test_visual.js` | 视觉回归：圆角弧角数、悬浮态、每行独立写入 |
 | `dump/panel_preview.png` | 面板设计预览图（由渲染器生成，与游戏内一致） |
+| `scripts/hm_inject.js` | 可分发的完整注入脚本（App 的「更新脚本」拉的就是它） |
+| `scripts/hm_common.js` | 可分发的通用注入脚本 |
+| `catalog.json` | 游戏目录，App 启动时拉取 |
 | `src/nativelib/inj.js` | 游戏内探针 + 悬浮面板源码 |
 | `src/nativelib/inj_gen.h` | 由 `inj.js` 自动生成的 C 字符串头文件 |
 | `src/build_inj.py` | `inj.js` → `inj_gen.h` 转换脚本 |
