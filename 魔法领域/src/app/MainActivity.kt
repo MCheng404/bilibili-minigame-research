@@ -410,32 +410,17 @@ private fun GameCard(game: GameEntry) {
                                     scriptCmd = ScriptRepo.grantHint()
                                 }
                                 else -> {
-                                    // 主路径其实不依赖这里：模块跑在游戏进程里，
-                                    // 自己会把最新脚本同步到游戏目录。这个按钮
-                                    // 只是「立刻强制同步一次」的覆盖手段。
+                                    // 首选路径：通知游戏进程里的模块立即同步。
+                                    // 模块本身就是游戏身份，写游戏目录不需要 root。
                                     scriptBusy = true
-                                    scriptState = "正在同步…"
+                                    scriptState = "正在通知游戏进程同步…"
                                     scope.launch {
-                                        val r = ScriptRepo.download(context, game.scriptUrl)
-                                        val msg = r.fold(
-                                            onSuccess = { f ->
-                                                ScriptRepo.deploy(context, f).fold(
-                                                    onSuccess = {
-                                                        scriptCmd = ""
-                                                        "已部署 " + f.length() + " 字节，重启游戏生效"
-                                                    },
-                                                    onFailure = {
-                                                        scriptCmd = ScriptRepo.manualCommand(f.absolutePath)
-                                                        "部署失败：" + (it.message ?: "未知错误")
-                                                    },
-                                                )
-                                            },
-                                            onFailure = {
-                                                scriptCmd = ""
-                                                "下载失败：" + (it.message ?: "未知错误")
-                                            },
-                                        )
-                                        scriptState = msg
+                                        val ok = ScriptRepo.requestSync(context)
+                                        scriptState = if (ok)
+                                            "已通知游戏进程同步脚本，重启游戏后生效"
+                                        else
+                                            "通知失败：请在游戏进程运行时重试"
+                                        scriptCmd = if (ok) "" else ScriptRepo.manualCommandHint()
                                         scriptBusy = false
                                     }
                                 }

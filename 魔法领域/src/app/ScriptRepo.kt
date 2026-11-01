@@ -28,6 +28,9 @@ object ScriptRepo {
 
     private const val TAG = "HMScript"
 
+    /** 与模块约定的同步广播 */
+    private const val SYNC_ACTION = "com.hm.xposed.SYNC_SCRIPT"
+
     /** 目标路径：游戏自己的 files 目录，native 层能读 */
     const val TARGET = "/data/data/tv.danmaku.bili/files/hm_inject.js"
 
@@ -205,6 +208,34 @@ object ScriptRepo {
         }
         return false
     }
+
+    /**
+     * 请游戏进程里的模块立即同步脚本。
+     *
+     * 这是**首选**路径：模块跑在 tv.danmaku.bili:web 里，身份就是游戏自己，
+     * 写游戏目录不需要 root；而 App 用 su 写别的 App 的私有目录会被
+     * KernelSU 的 App Profile（SELinux 域）挡住。
+     */
+    fun requestSync(context: Context): Boolean = try {
+        /*
+         * 目标包必须是 **tv.danmaku.bili**，不是模块自己的包名。
+         * 动态注册的 BroadcastReceiver 在系统里是按「调用进程的包名」登记的，
+         * 而接收器是在 tv.danmaku.bili:web 进程里注册的 ——
+         * 广播限定到 com.hm.xposed 的话系统找不到接收者（实测接收者数 = 0）。
+         * 限定到 tv.danmaku.bili 就能送达 :web 进程。
+         */
+        val i = Intent(SYNC_ACTION).setPackage("tv.danmaku.bili")
+        context.sendBroadcast(i)
+        true
+    } catch (e: Exception) {
+        Log.w(TAG, "requestSync failed: ${e.message}")
+        false
+    }
+
+    /** 手动部署的提示（不依赖 root 的方案不可用时） */
+    fun manualCommandHint(): String =
+        "模块在游戏进程里运行时才能同步；也可以用 adb 手动部署：" +
+            "adb push hm_inject.js $TARGET"
 
     /** 给用户看的手动部署命令 */
     fun manualCommand(localPath: String): String =

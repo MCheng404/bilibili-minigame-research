@@ -153,8 +153,24 @@ public class HookEntry implements IXposedHookLoadPackage {
             "/data/data/tv.danmaku.bili/files/hm_inject.js";
     private static final String SCRIPT_TS =
             "/data/data/tv.danmaku.bili/files/.hm_script_ts";
+    /** App 用来请求立即同步的广播 */
+    private static final String SYNC_ACTION = "com.hm.xposed.SYNC_SCRIPT";
     /** 6 小时内不重复拉取 */
     private static final long SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000L;
+
+    /**
+     * 更新时间戳文件。
+     * 注意：File.setLastModified() 对**不存在的文件**是无效的（不会创建它），
+     * 所以要先 createNewFile()，否则标记文件永远不出现，
+     * 「6 小时内不重复拉」的判断也就永远不成立。
+     */
+    private static void touchTs(File ts) {
+        try {
+            if (!ts.exists()) ts.createNewFile();
+            ts.setLastModified(System.currentTimeMillis());
+        } catch (Throwable t) {
+        }
+    }
 
     private static void syncInjectScript() {
         try {
@@ -192,7 +208,7 @@ public class HookEntry implements IXposedHookLoadPackage {
 
             File dst = new File(SCRIPT_PATH);
             if (dst.isFile() && dst.length() == body.length) {
-                ts.setLastModified(System.currentTimeMillis());
+                touchTs(ts);
                 return;                                     // 内容长度一致，视为已是最新
             }
             // 先写临时文件再改名：避免 native 层读到写了一半的内容
@@ -204,10 +220,57 @@ public class HookEntry implements IXposedHookLoadPackage {
                 XposedBridge.log(TAG + ": script rename failed");
                 return;
             }
-            ts.setLastModified(System.currentTimeMillis());
+            touchTs(ts);
             XposedBridge.log(TAG + ": script synced " + body.length + " bytes -> " + SCRIPT_PATH);
         } catch (Throwable t) {
             XposedBridge.log(TAG + ": script sync failed -> " + t);
+        }
+    }
+
+    /**
+     * 注册「立即同步脚本」的广播接收器。
+     *
+     * App 没有权限写游戏目录（su 会被 KernelSU 的 App Profile 限制），
+     * 但模块跑在游戏进程里、身份就是游戏自己，写自己的目录没问题。
+     * 所以让 App 发广播，由模块在这里拉脚本 —— 全程不需要 root。
+     */
+    private static void registerSyncReceiver() {
+        try {
+            XposedBridge.hookAllMethods(android.app.Application.class, "onCreate",
+                    new XC_MethodHook() {
+                        @Override protected void beforeHookedMethod(MethodHookParam param) {
+                            try {
+                                android.content.Context ctx = (android.content.Context) param.thisObject;
+                                android.content.BroadcastReceiver rc = new android.content.BroadcastReceiver() {
+                                    @Override public void onReceive(android.content.Context c, android.content.Intent in) {
+                                        if (SYNC_ACTION.equals(in.getAction())) {
+                                            XposedBridge.log(TAG + ": 收到同步请求");
+                                            syncInjectScript();
+                                        }
+                                    }
+                                };
+                                android.content.IntentFilter fl =
+                                        new android.content.IntentFilter(SYNC_ACTION);
+                                /*
+                                 * Android 14 起必须显式指定导出标志，否则抛 SecurityException。
+                                 * 这里必须用 RECEIVER_EXPORTED：接收器的组件属于模块 APK，
+                                 * 而发送方（App）与游戏进程不同 UID，
+                                 * 用 NOT_EXPORTED 的话广播根本收不到。
+                                 * 安全性没问题 —— 广播只能触发「重新拉取固定 URL 的脚本」。
+                                 */
+                                if (android.os.Build.VERSION.SDK_INT >= 33) {
+                                    ctx.registerReceiver(rc, fl, android.content.Context.RECEIVER_EXPORTED);
+                                } else {
+                                    ctx.registerReceiver(rc, fl);
+                                }
+                                XposedBridge.log(TAG + ": 同步广播接收器已注册");
+                            } catch (Throwable t) {
+                                XposedBridge.log(TAG + ": 注册同步接收器失败 -> " + t);
+                            }
+                        }
+                    });
+        } catch (Throwable t) {
+            XposedBridge.log(TAG + ": hook Application.onCreate 失败 -> " + t);
         }
     }
 
@@ -237,6 +300,10 @@ public class HookEntry implements IXposedHookLoadPackage {
 
         if (HTML_HOOK) hookHtmlWriters(lp.classLoader);
         if (WV_PROBE) hookWebViewLoaders(lp.classLoader);
+
+        if (lp.processName.endsWith(":web")) {
+            registerSyncReceiver();
+        }
 
         if (NATIVE_TEST && lp.processName.endsWith(":web")) {
             Thread nt = new Thread(new Runnable() {
