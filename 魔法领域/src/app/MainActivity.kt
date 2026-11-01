@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -52,6 +53,14 @@ private data class GameEntry(
     val features: List<String>,
     val accent: Color,
 )
+
+// miuix 的 CardDefaults.InsideMargin 是 PaddingValues(0.dp)，
+// 不显式指定的话内容会完全贴着卡片边缘。
+private val CARD_PADDING = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
+
+// SmallTitleDefaults.InsideMargin 是 (28dp, 8dp)，页面本身已有 16dp 横向 padding，
+// 叠加后小标题会比卡片多缩进 28dp。这里收窄到与卡片左边缘基本齐平。
+private val TITLE_PADDING = PaddingValues(horizontal = 2.dp, vertical = 8.dp)
 
 private val SUPPORTED_GAMES = listOf(
     GameEntry(
@@ -107,9 +116,9 @@ private fun HomeScreen() {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             StatusCard()
-            SmallTitle("支持的游戏")
+            SmallTitle("支持的游戏", insideMargin = TITLE_PADDING)
             SUPPORTED_GAMES.forEach { game -> GameCard(game) }
-            SmallTitle("使用前提")
+            SmallTitle("使用前提", insideMargin = TITLE_PADDING)
             HintCard()
             Spacer(Modifier.height(8.dp))
         }
@@ -119,7 +128,10 @@ private fun HomeScreen() {
 @Composable
 private fun StatusCard() {
     val cs = MiuixTheme.colorScheme
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        insideMargin = CARD_PADDING,
+    ) {
       Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -184,7 +196,10 @@ private fun InfoRow(label: String, value: String) {
 @Composable
 private fun GameCard(game: GameEntry) {
     val cs = MiuixTheme.colorScheme
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        insideMargin = CARD_PADDING,
+    ) {
       Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -269,7 +284,10 @@ private fun GameCard(game: GameEntry) {
 @Composable
 private fun HintCard() {
     val cs = MiuixTheme.colorScheme
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        insideMargin = CARD_PADDING,
+    ) {
       Column(modifier = Modifier.fillMaxWidth()) {
         HintLine("1. 在 LSPosed 里启用本模块，作用域勾选「哔哩哔哩」")
         HintLine("2. 强制停止哔哩哔哩后重新打开，进入小游戏")

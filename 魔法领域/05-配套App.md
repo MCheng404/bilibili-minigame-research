@@ -197,7 +197,33 @@ print(c.fetchall())          # ('com.hm.xposed', 'tv.danmaku.bili', 0)
 重装后截图比对。中文串在 dex 里用 MUTF-8 编码，`strings` 命令往往抓不到，
 不适合用来判断 APK 是否更新。
 
-### 5.2 长文本溢出卡片边界
+### 5.2 内容贴着卡片边缘（miuix 默认内边距是 0）
+
+`CardDefaults.InsideMargin` 的值是 **`PaddingValues(0.dp)`**，不是常见的 16dp。
+不显式传 `insideMargin` 的话，内容会完全贴着卡片边缘，看起来像"溢出"。
+
+```kotlin
+private val CARD_PADDING = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
+
+Card(
+    modifier = Modifier.fillMaxWidth(),
+    insideMargin = CARD_PADDING,
+) { /* content */ }
+```
+
+`SmallTitle` 也有类似问题，反方向：`SmallTitleDefaults.InsideMargin` 是
+`PaddingValues(28.dp, 8.dp)`。如果页面本身已经有 16dp 横向 padding，
+小标题会比卡片多缩进 28dp，视觉上很突兀。需要一起收窄：
+
+```kotlin
+private val TITLE_PADDING = PaddingValues(horizontal = 2.dp, vertical = 8.dp)
+
+SmallTitle("支持的游戏", insideMargin = TITLE_PADDING)
+```
+
+两条都用同一个常量定义，避免三四处手写数字写岔。
+
+### 5.3 长文本溢出卡片边界
 
 `Card` 的 content 是 `ColumnScope`，内部 Column 的宽度由内容决定。
 一条长中文文本会把 Column 撑得比卡片宽，表现为文字两端被裁。
@@ -210,7 +236,7 @@ print(c.fetchall())          # ('com.hm.xposed', 'tv.danmaku.bili', 0)
 
 另外长段落建议拆成两三个短 `Text`，比一整段更不容易出现边界问题。
 
-### 5.3 截图是锁屏壁纸
+### 5.4 截图是锁屏壁纸
 
 `am start` 成功不代表界面在前台，设备可能已经休眠。截图前先：
 
@@ -219,7 +245,7 @@ adb shell input keyevent KEYCODE_WAKEUP
 adb shell wm dismiss-keyguard
 ```
 
-### 5.4 截图太大无法查看
+### 5.5 截图太大无法查看
 
 1440×3200 的 PNG 有 4 MB 多，需要先缩放或裁剪：
 
