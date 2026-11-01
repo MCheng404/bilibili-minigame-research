@@ -1,0 +1,26 @@
+# 编译产物
+*.so
+*.o
+*.a
+
+# Python
+__pycache__/
+*.py[cod]
+
+# 临时文件
+*.log
+*.tmp
+_patched_test.js
+_inj_check.js
+cur.png
+cur2.png
+cur3.png
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# 本地测试样例（体积大，按需自行 dump）
+# 如需保留完整 bundle，删掉下面这行
+# dump/hmjs_*.js
