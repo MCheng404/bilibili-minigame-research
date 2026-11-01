@@ -189,27 +189,36 @@ try {
       var b = g.playerInfo.battleSave;
       if (!b) { G.__hmBattleOn_ = 0; return 0; }
       var n = 0;
-      try { if (b.goldNow !== 999999) { b.goldNow = 999999; n++; } } catch (e) {}
-      try { b.roleLimitNum = 20; n++; } catch (e) {}
+      if (SET.btGold) {
+        try { if (b.goldNow !== 999999) { b.goldNow = 999999; n++; } } catch (e) {}
+      }
       try {
-        var h = b.heroSaveInfo;
-        if (h) {
-          h.mp_max = 9999; h.mp_now = 9999;
-          h.atk = HERO_ATTR; h.def = HERO_ATTR;
-          h.str = HERO_ATTR; h.int = HERO_ATTR;
-          n++;
-        }
+        if (SET.roleLimit >= 0) { b.roleLimitNum = SET.roleLimit; }
       } catch (e) {}
-      var units = eachUnit(function (u) {
-        if (u.teamId !== 0) return;              // 只强化我方
+      if (SET.btHero) {
         try {
-          if (!u.__hmBoost) { u.__hmBoost = 1; u.life_per = Math.max(1, u.life_per) * 50; }
-          var cnt = u.roleNum_init || u.roleNum || 1;
-          u.life_max = cnt * u.life_per;
-          u.life_now = u.life_max;
-          u.roleNum = cnt;
+          var h = b.heroSaveInfo;
+          if (h) {
+            h.mp_max = 9999; h.mp_now = 9999;
+            h.atk = HERO_ATTR; h.def = HERO_ATTR;
+            h.str = HERO_ATTR; h.int = HERO_ATTR;
+            n++;
+          }
         } catch (e) {}
-      });
+      }
+      var units = 0;
+      if (SET.btHp) {
+        units = eachUnit(function (u) {
+          if (u.teamId !== 0) return;              // 只强化我方
+          try {
+            if (!u.__hmBoost) { u.__hmBoost = 1; u.life_per = Math.max(1, u.life_per) * 50; }
+            var cnt = u.roleNum_init || u.roleNum || 1;
+            u.life_max = cnt * u.life_per;
+            u.life_now = u.life_max;
+            u.roleNum = cnt;
+          } catch (e) {}
+        });
+      }
       G.__hmUnitCount = units;
       G.__hmBattleOn_ = 1;
       return n;
@@ -219,13 +228,22 @@ try {
     G.__hmApply = function () {
       var g = G.__hmg;
       if (!g || !g.playerInfo) return 0;
-      var P = g.playerInfo, k, n = 0;
-      for (k in WANT) {
-        if (Object.prototype.hasOwnProperty.call(WANT, k)) {
-          try { P[k] = WANT[k]; n++; } catch (e) {}
-        }
-      }
-      // 体力：和 click_startGame 的 consume 判断共用同一个上限
+      var P = g.playerInfo, n = 0;
+      try { P.outDiamondNum = SET.diamond; n++; } catch (e) {}
+      try { P.woodNum = SET.wood; n++; } catch (e) {}
+      try { P.stoneNum = SET.stone; n++; } catch (e) {}
+      try { P.pvpCoin = SET.pvpCoin; n++; } catch (e) {}
+      try { P.godStone = SET.godStone; n++; } catch (e) {}
+      try { P.outExpNum = SET.exp; n++; } catch (e) {}
+      // 这些不在面板输入框里，仍按固定值拉满
+      try {
+        P.pvpTicket = 999; P.freeChangeNum = 999; P.pvpScore = 99999;
+        P.heroSlice_u = 99999; P.devilProp = 9999; P.godExp = 999999;
+        if (SET.adFree) P.freeVideoNum = 999;
+        n++;
+      } catch (e) {}
+
+      // 体力：上限来自 powerCfg.max（开局判 power>=consume）
       try {
         if (G.__hma && G.__hma.powerCfg && G.__hma.powerCfg.max > 0) {
           P.power = G.__hma.powerCfg.max;
@@ -234,7 +252,7 @@ try {
         }
       } catch (e) {}
 
-      // 阵营币是长度 5 的数组，整体赋值会被后续流程覆盖，逐项写更稳
+      // 阵营币是长度 5 的数组，逐项写（整体赋值会被后续流程覆盖）
       try {
         var cc = P.campCoinNum;
         if (cc && cc.length) {
@@ -243,20 +261,20 @@ try {
         }
       } catch (e) {}
 
-      // 神格：small 上限 5，到 6 游戏自己会进位
+      // 神格：small 上限 5，到 6 游戏自己进位
       try {
         P.godLevel_big = 10;
         P.godLevel_small = 5;
         n++;
       } catch (e) {}
 
-      // VIP
+      // VIP：getVipValid 里 find().vipLv 无空判断，必须按上限截断
       try {
         var maxVip = -1;
         if (G.__hma && G.__hma.vipCfg && G.__hma.vipCfg.length) maxVip = G.__hma.vipCfg.length - 1;
         G.__hmMaxVip = maxVip;
         if (maxVip >= 0) {
-          var want = 10;
+          var want = SET.vip;
           if (want > maxVip) want = maxVip;
           P.vipLv = want;
           try { P.vipExp = 0; } catch (e) {}
@@ -295,6 +313,28 @@ try {
     }
 
     // ------------------------------------------------------------ 面板
+    // ------------------------------------------------------------ 可配置项
+    // 数值目标（输入框可直接改）+ 各功能开关。挂在 globalThis 上，
+    // 面板重建/场景切换都不会丢。
+    if (!G.__hmSet) {
+      G.__hmSet = {
+        diamond: 888888,
+        wood: 99999,
+        stone: 99999,
+        pvpCoin: 99999,
+        godStone: 99999,
+        exp: 999999,
+        vip: 10,
+        roleLimit: 20,
+        btGold: true,      // 局内金币
+        btHp: true,        // 我方血量/人数
+        btHero: true,      // 英雄四维与法力
+        adFree: true,      // 免广告
+        autoApply: true    // 自动应用
+      };
+    }
+    var SET = G.__hmSet;
+
     var rows = [];
 
     function mkText(parent, str, x, y, size, color) {
@@ -317,6 +357,48 @@ try {
       } catch (e) {}
       parent.addChild(s);
       return s;
+    }
+
+    // 文本输入框。Laya 的 TextInput 没有皮肤时也能用，靠 bgColor/borderColor 兜底，
+    // 点一下会弹系统键盘（小游戏容器支持）。
+    function mkInput(parent, value, x, y, w, h) {
+      var t = new Laya.TextInput();
+      try {
+        t.size(w, h);
+        t.pos(x, y);
+        t.fontSize = 17;
+        t.color = '#E8F0FF';
+        t.bgColor = '#141C2B';
+        t.borderColor = '#2C6BED';
+        t.padding = '6,10,6,10';
+        t.type = 'number';
+        t.text = String(value);
+      } catch (e) {}
+      try { parent.addChild(t); } catch (e) {}
+      return t;
+    }
+
+    function drawSwitch(sp, on) {
+      try {
+        sp.graphics.clear();
+        sp.graphics.drawRect(0, 0, 62, 32, on ? '#1F7A4D' : '#39404D');
+        sp.graphics.drawCircle(on ? 46 : 16, 16, 13, on ? '#7BE3A8' : '#8A93A6');
+      } catch (e) {}
+    }
+
+    function mkSwitch(parent, on, x, y, onChange) {
+      var sp = new Laya.Sprite();
+      try { sp.size(62, 32); sp.pos(x, y); sp.mouseEnabled = true; } catch (e) {}
+      drawSwitch(sp, on);
+      try {
+        sp.on('click', null, function () {
+          on = !on;
+          drawSwitch(sp, on);
+          try { onChange(on); } catch (e) {}
+        });
+      } catch (e) {}
+      try { parent.addChild(sp); } catch (e) {}
+      return sp;
     }
 
     function setCollapsed(v) {
@@ -357,6 +439,13 @@ try {
       G.__hmBody = null; G.__hmMini = null; rows = [];
     };
 
+    function refreshTop() {
+      try {
+        var f = findView();
+        if (f.view) f.view.refreshUI();
+      } catch (e) {}
+    }
+
     G.__hmUI = function () {
       var stage = null;
       try { stage = Laya.stage; } catch (e) {}
@@ -374,39 +463,71 @@ try {
       if (f.mini) { try { stage.removeChild(f.mini); } catch (e) {} }
 
       var sw = stage.width || 400;
-      var defX = Math.max(4, sw - 78);
-      var px = (G.__hmPosX === undefined) ? defX : G.__hmPosX;
-      var py = (G.__hmPosY === undefined) ? 250 : G.__hmPosY;
+      var sh = stage.height || 800;
 
-      // 折叠态
-      var mini = mkBox(stage, px, py, 84, 34, 'rgba(16,40,72,0.92)', '#4DA6FF');
+      // ---------------- 折叠态：圆形悬浮按钮 ----------------
+      var R = 30;
+      var mini = new Laya.Sprite();
       mini.name = 'hmMini';
-      mkText(mini, 'HM', 16, 7, 18, '#9FD0FF');
+      try {
+        mini.size(R * 2, R * 2);
+        mini.pos(
+          (G.__hmPosX === undefined) ? sw - R * 2 - 12 : G.__hmPosX,
+          (G.__hmPosY === undefined) ? Math.round(sh * 0.62) : G.__hmPosY
+        );
+        mini.mouseEnabled = true;
+        mini.graphics.drawCircle(R, R, R, 'rgba(44,107,237,0.94)');
+        mini.graphics.drawCircle(R, R, R, null, '#9FD0FF', 2);
+      } catch (e) {}
+      try { stage.addChild(mini); } catch (e) {}
+      mkText(mini, 'HM', R - 15, R - 12, 19, '#FFFFFF');
       try { mini.on('click', null, function () { setCollapsed(false); }); } catch (e) {}
       G.__hmMini = mini;
 
-      // 展开态：放大到 300 x 452
-      var W = 300, H = 520;
+      // ---------------- 展开态：3/4 屏幕居中 ----------------
+      var W = Math.floor(sw * 0.75);
+      var H = Math.floor(sh * 0.75);
+      var BPX = Math.floor((sw - W) / 2);
+      var BPY = Math.floor((sh - H) / 2);
+      if (G.__hmBodyX !== undefined) { BPX = G.__hmBodyX; BPY = G.__hmBodyY; }
+
       var body = new Laya.Sprite();
       body.name = 'hmBody';
-      body.size(W, H);
-      body.pos((G.__hmPosX === undefined) ? Math.max(4, sw - W - 4) : G.__hmPosX, py);
-      try { body.zOrder = 999999; } catch (e) {}
-      body.mouseEnabled = true;
       try {
-        body.graphics.drawRect(0, 0, W, H, 'rgba(10,14,26,0.95)');
-        body.graphics.drawRect(0, 0, W, H, null, '#4DA6FF', 1);
+        body.size(W, H);
+        body.pos(BPX, BPY);
+        body.mouseEnabled = true;
+        body.zOrder = 999999;
+        body.graphics.drawRect(0, 0, W, H, 'rgba(10,14,26,0.97)');
+        body.graphics.drawRect(0, 0, W, H, null, '#4DA6FF', 2);
       } catch (e) {}
       try { stage.addChild(body); } catch (e) {}
       G.__hmBody = body;
 
-      var bar = mkBox(body, 0, 0, W, 30, '#16324F');
-      G.__hmTitle = mkText(bar, 'HM 修改器', 12, 6, 17, '#9FD0FF');
-      mkText(bar, 'v9', W - 62, 9, 13, '#5C8CC0');
-      var fold = mkBox(bar, W - 34, 0, 34, 30, '#2456B8');
-      mkText(fold, '—', 12, 4, 17, '#FFFFFF');
-      try { fold.on('click', null, function () { setCollapsed(true); }); } catch (e) {}
+      // 标题栏
+      var TB = 50;
+      var bar = mkBox(body, 0, 0, W, TB, '#16324F');
+      G.__hmTitle = mkText(bar, 'HM 修改器', 18, 13, 20, '#9FD0FF');
+      var CR = 18;
+      var close = new Laya.Sprite();
+      try {
+        close.size(CR * 2, CR * 2);
+        close.pos(W - CR * 2 - 10, (TB - CR * 2) / 2);
+        close.mouseEnabled = true;
+        close.graphics.drawCircle(CR, CR, CR, 'rgba(196,60,72,0.92)');
+      } catch (e) {}
+      mkText(close, '×', CR - 8, CR - 14, 25, '#FFFFFF');
+      try {
+        close.on('click', null, function () {
+          G.__hmBodyX = body.x; G.__hmBodyY = body.y;
+          G.__hmCollapsed = true;
+          try { body.visible = false; } catch (e) {}
+          try { mini.visible = true; } catch (e) {}
+        });
+      } catch (e) {}
+      try { bar.addChild(close); } catch (e) {}
 
+      // 拖动：标题栏拖面板，圆钮拖自己
       try {
         bar.on('mousedown', null, function (e) {
           G.__hmDrag = true; G.__hmTarget = body;
@@ -417,7 +538,6 @@ try {
           G.__hmOX = e.stageX - mini.x; G.__hmOY = e.stageY - mini.y;
         });
       } catch (e) {}
-
       if (!G.__hmDragBound) {
         G.__hmDragBound = 1;
         try {
@@ -426,108 +546,125 @@ try {
             if (!t || !G.__hmDrag) return;
             t.x = e.stageX - G.__hmOX;
             t.y = e.stageY - G.__hmOY;
-            G.__hmPosX = t.x; G.__hmPosY = t.y;
+            if (t.name === 'hmMini') { G.__hmPosX = t.x; G.__hmPosY = t.y; }
+            else { G.__hmBodyX = t.x; G.__hmBodyY = t.y; }
           });
           stage.on('mouseup', null, function () { G.__hmDrag = false; });
         } catch (e) {}
       }
 
-      rows = [];
-      var y = 40;
-      function addRow(label, getter) {
-        mkText(body, label, 14, y, 15, '#7FA8D0');
-        var v = mkText(body, '-', 116, y, 15, '#E8F0FF');
-        rows.push({ t: v, g: getter });
+      // ---------------- 中间滚动区 ----------------
+      var FOOT = 76;
+      var sc = null;
+      try {
+        sc = new Laya.Panel();
+        sc.size(W, H - TB - FOOT);
+        sc.pos(0, TB);
+        sc.vScrollBarSkin = '';
+        body.addChild(sc);
+      } catch (e) {}
+      var content = new Laya.Sprite();
+      try { content.size(W, 10); sc.addChild(content); } catch (e) {}
+
+      var LW = 110, AW = 66, PAD = 16;
+      var IW = W - LW - AW - PAD * 2 - 16;
+      var y = 14;
+
+      function sectionTitle(txt) {
+        mkText(content, txt, PAD, y, 14, '#5C8CC0');
         y += 26;
       }
-      addRow('钻石', function (P) { return String(P.outDiamondNum); });
-      addRow('木材', function (P) { return String(P.woodNum); });
-      addRow('石头', function (P) { return String(P.stoneNum); });
-      addRow('竞技币', function (P) { return String(P.pvpCoin); });
-      addRow('神石', function (P) { return String(P.godStone); });
-      addRow('VIP', function (P) { return String(P.vipLv) + (G.__hmMaxVip >= 0 ? ' / ' + G.__hmMaxVip : ''); });
-      addRow('神格', function (P) { return P.godLevel_big + '.' + P.godLevel_small; });
-      addRow('体力', function (P) { return String(P.power) + (G.__hmPowerMax ? ' / ' + G.__hmPowerMax : ''); });
-      addRow('兵种', function (P) {
-        var arr = P.outCampInfo || [];
-        if (!arr.length) return G.__hmRoleMax > 0 ? '未解锁(上限' + G.__hmRoleMax + ')' : '未解锁';
-        var mx = 0;
-        for (var i = 0; i < arr.length; i++) if (arr[i].level > mx) mx = arr[i].level;
-        return arr.length + '个 / Lv' + mx;
-      });
-      addRow('英雄', function (P) {
-        var arr = P.outHeroList || [];
-        if (!arr.length) return '无';
-        var mx = 0;
-        for (var i = 0; i < arr.length; i++) if (arr[i].level > mx) mx = arr[i].level;
-        return arr.length + '个 / Lv' + mx;
-      });
-      addRow('天赋', function (P) {
-        var arr = P.outHeroList || [];
-        if (!arr.length) return '无';
-        var tot = 0, mx = 0;
-        for (var i = 0; i < arr.length; i++) {
-          var tl = arr[i].talentList || [];
-          tot += tl.length;
-          for (var j = 0; j < tl.length; j++) if (tl[j] && tl[j][1] > mx) mx = tl[j][1];
-        }
-        return tot + '个 / Lv' + mx;
-      });
-      addRow('免广', function () { return G.__hmAdOn ? '已启用' : '未接管'; });
-      addRow('战斗', function (P) {
-        if (!P.battleSave) return '未进入';
-        return '金币' + P.battleSave.goldNow + ' · 单位' + (G.__hmUnitCount || 0);
-      });
 
-      // 两列布局：6 个按钮排 3 行
-      var BW = 132, BX1 = 14, BX2 = 154, BH = 34;
-      function mkBtn(label, bx, by, bw, color, cb) {
-        var b = mkBox(body, bx, by, bw, BH, color);
-        mkText(b, label, 10, 8, 14, '#FFFFFF');
-        try { b.on('click', null, cb); } catch (e) {}
-        return b;
+      function numberRow(label, key, applyFn) {
+        mkText(content, label, PAD, y + 10, 16, '#8FB4DC');
+        var inp = mkInput(content, SET[key], PAD + LW, y, IW, 40);
+        var btn = mkBox(content, PAD + LW + IW + 8, y, AW, 40, '#2456B8');
+        mkText(btn, '应用', 14, 11, 15, '#FFFFFF');
+        try {
+          btn.on('click', null, function () {
+            var v = parseInt(inp.text, 10);
+            if (isNaN(v) || v < 0) v = 0;
+            SET[key] = v;
+            try { applyFn(v); } catch (e) {}
+            try { G.__hmTitle.text = 'HM ' + label + ' = ' + v; } catch (e) {}
+            refreshTop();
+          });
+        } catch (e) {}
+        y += 48;
+        return inp;
       }
 
-      mkBtn('全部拉满', BX1, y + 2, BW, '#2456B8', function () {
-        var n = G.__hmApply();
-        try { G.__hmTitle.text = 'HM 已应用 ' + n + ' 项'; } catch (e) {}
-        var fv = findView();
-        try { if (fv.view) fv.view.refreshUI(); } catch (e) {}
-        try { G.__hmRefreshUI(); } catch (e) {}
-      });
-      mkBtn('写入存档', BX2, y + 2, BW, '#1F7A4D', function () {
-        try {
-          G.__hmg.PlayerInfo_save();
-          G.__hmTitle.text = 'HM 存档已提交';
-        } catch (e) {
-          try { G.__hmTitle.text = 'HM 存档失败'; } catch (e2) {}
-        }
-      });
-      mkBtn('兵种满级', BX1, y + 42, BW, '#7A4BC4', function () {
-        var n = G.__hmApplyRoles();
-        try { G.__hmTitle.text = n > 0 ? ('HM 兵种 Lv' + G.__hmRoleMax + ' x' + n) : 'HM 兵种数据缺失'; } catch (e) {}
-        try { G.__hmRefreshUI(); } catch (e) {}
-      });
-      mkBtn('英雄满级', BX2, y + 42, BW, '#A8552E', function () {
-        var n = G.__hmApplyHeroes();
-        try { G.__hmTitle.text = n > 0 ? ('HM 英雄 Lv' + G.__hmHeroMax + ' x' + n) : 'HM 英雄数据缺失'; } catch (e) {}
-        try { G.__hmRefreshUI(); } catch (e) {}
-      });
-      mkBtn('天赋全满', BX1, y + 82, BW, '#2E8B7A', function () {
-        var n = G.__hmApplyTalents();
-        try { G.__hmTitle.text = n > 0 ? ('HM 天赋 Lv' + TALENT_MAX + ' x' + n) : 'HM 天赋数据缺失'; } catch (e) {}
-        try { G.__hmRefreshUI(); } catch (e) {}
-      });
-      mkBtn('战斗强化', BX2, y + 82, BW, '#B04A6E', function () {
-        var n = G.__hmBattle();
-        try {
-          G.__hmTitle.text = n > 0 ? ('HM 战斗已强化 · 单位' + (G.__hmUnitCount || 0)) : 'HM 未进入战斗';
-        } catch (e) {}
-        try { G.__hmRefreshUI(); } catch (e) {}
+      function switchRow(label, key, onChange) {
+        mkText(content, label, PAD, y + 7, 16, '#8FB4DC');
+        mkSwitch(content, !!SET[key], W - 62 - PAD, y, function (on) {
+          SET[key] = on;
+          try { if (onChange) onChange(on); } catch (e) {}
+        });
+        y += 42;
+      }
+
+      function setPlayer(fn) {
+        var g = G.__hmg;
+        if (!g || !g.playerInfo) return;
+        try { fn(g.playerInfo); } catch (e) {}
+      }
+
+      sectionTitle('冒险数值');
+      numberRow('钻石', 'diamond', function (v) { setPlayer(function (P) { P.outDiamondNum = v; }); });
+      numberRow('木材', 'wood', function (v) { setPlayer(function (P) { P.woodNum = v; }); });
+      numberRow('石头', 'stone', function (v) { setPlayer(function (P) { P.stoneNum = v; }); });
+      numberRow('竞技币', 'pvpCoin', function (v) { setPlayer(function (P) { P.pvpCoin = v; }); });
+      numberRow('神石', 'godStone', function (v) { setPlayer(function (P) { P.godStone = v; }); });
+      numberRow('经验', 'exp', function (v) { setPlayer(function (P) { P.outExpNum = v; }); });
+      numberRow('VIP 等级', 'vip', function (v) {
+        var maxVip = (G.__hmMaxVip >= 0) ? G.__hmMaxVip : v;
+        if (v > maxVip) v = maxVip;
+        setPlayer(function (P) { P.vipLv = v; P.vipExp = 0; });
       });
 
+      y += 8;
+      sectionTitle('战斗与功能');
+      numberRow('上阵上限', 'roleLimit', function (v) {
+        setPlayer(function (P) { if (P.battleSave) P.battleSave.roleLimitNum = v; });
+      });
+      switchRow('无限金币', 'btGold');
+      switchRow('无限血量/人数', 'btHp');
+      switchRow('英雄强化', 'btHero');
+      switchRow('免广告', 'adFree', function (on) { if (!on) G.__hmAdOn = 0; });
+      switchRow('自动应用', 'autoApply');
+
+      try { content.size(W, y + 24); } catch (e) {}
+
+      // ---------------- 底部固定按钮 ----------------
+      var FY = H - FOOT;
+      try { mkBox(body, 0, FY, W, FOOT, '#16324F'); } catch (e) {}
+      var bw = (W - PAD * 3) / 2;
+      var b1 = mkBox(body, PAD, FY + 14, bw, 48, '#2456B8');
+      mkText(b1, '一键拉满', 20, 14, 17, '#FFFFFF');
+      try {
+        b1.on('click', null, function () {
+          var n = G.__hmApply();
+          try { G.__hmTitle.text = 'HM 已应用 ' + n + ' 项'; } catch (e) {}
+          refreshTop();
+        });
+      } catch (e) {}
+
+      var b2 = mkBox(body, PAD * 2 + bw, FY + 14, bw, 48, '#1F7A4D');
+      mkText(b2, '写入存档', 20, 14, 17, '#FFFFFF');
+      try {
+        b2.on('click', null, function () {
+          try {
+            G.__hmg.PlayerInfo_save();
+            G.__hmTitle.text = 'HM 存档已提交';
+          } catch (e) {
+            try { G.__hmTitle.text = 'HM 存档失败'; } catch (e2) {}
+          }
+        });
+      } catch (e) {}
+
       G.__hmRoleMax = G.__hmMaxRole();
-      setCollapsed(G.__hmCollapsed);
+      try { body.visible = !G.__hmCollapsed; } catch (e) {}
+      try { mini.visible = !!G.__hmCollapsed; } catch (e) {}
       G.__hmRefreshUI();
       return body;
     };

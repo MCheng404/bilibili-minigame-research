@@ -7,7 +7,7 @@ class LSprite {
     this._children = [];
     this.visible = true;
     this.x = 0; this.y = 0; this.width = 0; this.height = 0;
-    this.graphics = { drawRect() {} };
+    this.graphics = { drawRect() {}, drawCircle() {}, clear() {} };
     this.parent = null;
     this.zOrder = 0;
     this.mouseEnabled = false;
@@ -40,8 +40,15 @@ const g = { playerInfo: {
 const stage = new LSprite();
 stage.width = 750;
 stage.height = 1334;
+stage.height = 1334;
 
-globalThis.Laya = { stage, Sprite: LSprite, Text: LText };
+class LInput extends LSprite {
+  constructor() { super(); this.text = ''; this.fontSize = 14; this.bgColor = ''; this.borderColor = ''; this.padding = ''; this.type = ''; }
+}
+class LPanel extends LSprite {
+  constructor() { super(); this.vScrollBarSkin = ''; }
+}
+globalThis.Laya = { stage, Sprite: LSprite, Text: LText, TextInput: LInput, Panel: LPanel };
 globalThis.__hmg = g;
 globalThis.__hma = {
   vipCfg: Array.from({ length: 11 }, (_, i) => ({ vipLv: i })),
