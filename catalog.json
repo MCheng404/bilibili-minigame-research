@@ -1,6 +1,6 @@
 {
-  "version": 2,
-  "updatedAt": "2026-11-01T20:50:00Z",
+  "version": 3,
+  "updatedAt": "2026-11-01T22:05:00+08:00",
   "repo": "https://github.com/MCheng404/bilibili-minigame-research",
   "note": "App 启动时拉取本文件。新增小游戏只要在这里加一条记录，App 不用重新发布。",
   "games": [
@@ -24,6 +24,27 @@
       "scriptUrl": "https://raw.githubusercontent.com/MCheng404/bilibili-minigame-research/master/scripts/hm_inject.js",
       "commonScriptUrl": "https://raw.githubusercontent.com/MCheng404/bilibili-minigame-research/master/scripts/hm_common.js",
       "docsUrl": "https://github.com/MCheng404/bilibili-minigame-research/blob/master/%E9%AD%94%E6%B3%95%E9%A2%86%E5%9F%9F/README.md"
+    },
+    {
+      "id": "harvest-king",
+      "name": "别碰我的菜",
+      "engine": "Unity WebGL",
+      "chapter": "HarvestKing",
+      "status": "full",
+      "accent": "#1F9E6B",
+      "summary": "Unity 2022.3 编译成 WebGL WASM，游戏逻辑在 wasm 里，JS 层看不到任何数值单例。存档走 wx.setStorage 且是明文 JSON，所以改写入口是拦截存储 API，在读写瞬间改字段。",
+      "features": [
+        "货币（4 种）拉满、收益倍率",
+        "体力 / 模式体力上限",
+        "账号等级、章节关卡解锁",
+        "士兵等级满级、全兵种解锁",
+        "局内金币、复活次数、个人纪录",
+        "永久免广告（存档标记）",
+        "动态难度失败计数归零、每日宝箱次数重置"
+      ],
+      "scriptUrl": "https://raw.githubusercontent.com/MCheng404/bilibili-minigame-research/master/scripts/hm_inject.js",
+      "commonScriptUrl": "https://raw.githubusercontent.com/MCheng404/bilibili-minigame-research/master/scripts/hm_common.js",
+      "docsUrl": "https://github.com/MCheng404/bilibili-minigame-research/blob/master/%E9%AD%94%E6%B3%95%E9%A2%86%E5%9F%9F/08-Unity%E5%B0%8F%E6%B8%B8%E6%88%8F.md"
     }
   ]
 }

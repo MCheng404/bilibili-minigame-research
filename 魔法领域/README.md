@@ -18,6 +18,7 @@
 | [05-配套App.md](./05-配套App.md) | LSPosed 模块的配置界面：Miuix UI、作用域推荐、构建要点 |
 | [06-悬浮面板框架.md](./06-悬浮面板框架.md) | 游戏内悬浮修改器的通用框架：主题、组件、布局 API、圆角实现、踩坑 |
 | [07-通用脚本与远程化.md](./07-通用脚本与远程化.md) | 通用脚本（未适配游戏去广告）、运行时脚本加载、App 拉取仓库机制 |
+| [08-Unity小游戏.md](./08-Unity小游戏.md) | Unity WebGL 小游戏适配（别碰我的菜）：存档改写、HTML 面板、广告接管 |
 
 ## 资源
 
@@ -31,6 +32,13 @@
 | `src/app/` | LSPosed 模块的配置界面（`MainActivity.kt` + 构建配置 + 清单 + 作用域数组） |
 | `src/nativelib/inj.js` | 游戏内探针（v16）：通用层 + 魔法领域适配层 |
 | `src/nativelib/common.js` | **通用脚本**：未适配游戏的基础去广告（可独立分发） |
+| `src/nativelib/harvest.js` | Unity 小游戏存档改写 + 广告接管（通用框架） |
+| `src/nativelib/unity_ui.js` | Unity 小游戏的 HTML 浮层面板（通用框架） |
+| `src/nativelib/harvest_adapt.js` | 「别碰我的菜」的布局描述与写入函数（游戏适配层） |
+| `src/nativelib/hm_runtime.js` | 构建产物：分发器前置块 + inj.js（放设备供运行时加载） |
+| `src/build_runtime.py` | 构建运行时脚本与 inj_gen.h |
+| `src/build_common.py` | 把 common.js 重新内联进 inj.js（带 sha1 指纹，幂等） |
+| `src/test_unity.js` | Unity 模式端到端测试：引擎判定、存档改写、广告、面板、交互 |
 | `src/test_common.js` | 通用模式专项测试：桥接接管、全局扫描、模式切换 |
 | `src/nativelib/ui_block.js` | **通用悬浮面板框架**（跨游戏共用，配置驱动） |
 | `src/render_panel.js` | 面板预览渲染器：mock 构建 → SVG，脱离游戏看 UI |

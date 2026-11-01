@@ -59,6 +59,22 @@ native 层改成**运行时从磁盘读注入脚本**，不再只认编译进 `.
 **不用重编译 `.so`，也不用更新 App**。App 的游戏卡片里有「更新脚本」按钮，
 一键完成「下载 → 部署（走 su）→ 提示重启游戏」。
 
+### Unity 小游戏（别碰我的菜）
+
+架构与 Laya 完全不同：**逻辑在 wasm 里，JS 层看不到任何数值单例**。
+但 Unity 适配层是 JS，且把存档读写转成了 `wx.setStorage` / `wx.getStorageSync`，
+存档值是**明文 JSON** —— 所以改写入口是拦截存储 API，在读写瞬间改字段。
+
+| 能力 | 做法 |
+|---|---|
+| 货币 / 体力 / 等级 / 章节 / 士兵等级 | 改存档 `Save_Data` 里的对应字段 |
+| 永久免广告 | `advertisement.isNoAdsPurchased = true` |
+| 局内金币 / 复活次数 | `levelProgress.PlayerMoney` / `ReviveCount` |
+| 广告接管 | 伪广告对象**真的触发 `onClose`**（Unity 的 C# 靠它发奖励） |
+| 悬浮面板 | HTML 浮层（宿主有真 DOM），视觉与 Laya 版一致 |
+
+详见 [08-Unity小游戏.md](./魔法领域/08-Unity小游戏.md)。
+
 ## 三、已收录
 
 | 游戏 | 引擎 | 状态 | 入口 |

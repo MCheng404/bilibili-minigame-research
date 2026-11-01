@@ -151,6 +151,22 @@
     return null;
   }
 
+  /**
+   * Unity 小游戏（别碰我的菜）走的是另一套广告机制：
+   *   广告对象由 unity-sdk/ad.js 创建，游戏的 C# 通过 onClose 回调
+   *   得知「广告看完了」。通用层的简易替换把 onClose 做成空函数，
+   *   会让游戏永远等不到回调 —— 所以 Unity 模式下必须让位给
+   *   harvest.js 的专用实现（它会真的触发 onClose）。
+   */
+  function isUnityGame() {
+    try { if (G.__hmUnity) return 1; } catch (e) {}
+    try {
+      if (G.GameGlobal && G.GameGlobal.__cmgeSubpackages &&
+          G.GameGlobal.__cmgeSubpackages.length) return 1;
+    } catch (e) {}
+    return 0;
+  }
+
   /** 执行一次接管，返回接管到的入口数量 */
   function hookAds() {
     var n = 0;
@@ -159,6 +175,15 @@
       n += patchAd(p, 'playVideo');
       n += patchAd(p, 'playVideo_pre');
       n += patchAd(p, 'playVideoAd');
+    }
+    if (isUnityGame()) {
+      // Unity：交给 harvest.js 的专用实现（会真的触发 onClose）
+      try {
+        if (typeof G.__hmHarvestHookAds === 'function') n += G.__hmHarvestHookAds();
+      } catch (e) {}
+      G.__hmAdOn = n > 0 ? 1 : 0;
+      G.__hmAdN = n;
+      return n;
     }
     n += scanAds(G, 2, []);
     G.__hmAdOn = n > 0 ? 1 : 0;

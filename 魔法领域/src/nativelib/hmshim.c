@@ -107,15 +107,32 @@ static void *build_patched_source(void *src) {
     buf[got] = 0;
 
     /*
-     * 两种命中：
+     * 三种命中：
      *   已适配 —— 有 playerInfo 数据结构，能拿到 g 做数值修改
      *   通用   —— 有广告入口，至少能做去广告
+     *   Unity  —— Unity WebGL 小游戏，逻辑在 wasm 里，
+     *             只能从存档（明文 JSON）和 wx 广告 API 下手
      * 通用模式额外要求源码够大（主 bundle 才有广告 SDK），
      * 避免误伤游戏里的小脚本。
      */
     int adapted = (strstr(buf, "outDiamondNum") || strstr(buf, "playerInfo")) ? 1 : 0;
+    int unity = 0;
     int generic = 0;
     if (!adapted) {
+        /*
+         * Unity 小游戏识别：blapp-adapter-unity-wasm-split.js 这类文件
+         * 同时具备下面几个特征 —— GameGlobal 宿主命名空间、
+         * requirePlugin 插件加载、__cmgeSubpackages 子包列表。
+         * 三个同时出现基本可以确定是 Unity WebGL 的适配层。
+         */
+        if (got > 20000 &&
+            strstr(buf, "GameGlobal") &&
+            strstr(buf, "requirePlugin") &&
+            strstr(buf, "__cmgeSubpackages")) {
+            unity = 1;
+        }
+    }
+    if (!adapted && !unity) {
         /*
          * 通用模式的门槛要够严：改写源码是在 IIFE 函数体里插语句，
          * 插错位置会直接让整个 bundle 语法错误、游戏起不来。
@@ -127,11 +144,62 @@ static void *build_patched_source(void *src) {
             generic = 1;
         }
     }
-    if (!adapted && !generic) { free(buf); return NULL; }
+    if (!adapted && !unity && !generic) { free(buf); return NULL; }
 
     char *last = NULL, *p = buf;
     while ((p = strstr(p, "}();")) != NULL) { last = p; p++; }
     if (!last) { LOGI("patch: no IIFE tail found"); free(buf); return NULL; }
+
+    /*
+     * Unity 模式必须确认锚点在**文件末尾**。
+     * Unity 的适配层是 CommonJS 打包产物，文件里有多处 }();，
+     * 但只有 blapp-adapter-unity-wasm-split.js 的那个恰好在最后。
+     * 插到中间会切在别的语句里，直接语法错误、整个游戏起不来。
+     */
+    if (unity) {
+        size_t tail_off = (size_t)(last - buf);
+        size_t tail_len = (size_t)got - tail_off;
+        if (tail_len > 8) {
+            LOGI("patch: unity anchor not at EOF (tail=%zu), skip", tail_len);
+            free(buf);
+            return NULL;
+        }
+    }
+
+    /*
+     * Unity 的适配层是 CommonJS 风格，模块里没有 Laya 那种
+     * `g` / `a` / `gg` 私有变量，但有 GameGlobal 宿主命名空间。
+     * 所以 Unity 模式暴露的是 GameGlobal，游戏脚本靠它拿宿主 API。
+     */
+    if (unity) {
+        static const char UINJ[] =
+            ";try{globalThis.__hmUnity=1}catch(e){}"
+            ";try{globalThis.__hmGameGlobal=GameGlobal}catch(e){}"
+            ";try{globalThis.__hmBridge=function(){var o={};"
+            "try{o.GameGlobal=(typeof GameGlobal!=='undefined'?GameGlobal:null)}catch(e){}"
+            "try{o.wx=(typeof wx!=='undefined'?wx:null)}catch(e){}"
+            "try{o.bl=(typeof bl!=='undefined'?bl:null)}catch(e){}"
+            "try{o.canvas=(typeof canvas!=='undefined'?canvas:null)}catch(e){}"
+            "try{o.document=(typeof document!=='undefined'?document:null)}catch(e){}"
+            "return o}}catch(e){globalThis.__hmBridge=null}";
+        size_t ulen = sizeof(UINJ) - 1;
+        size_t uoff = (size_t)(last - buf);
+        size_t unlen = (size_t)got + ulen;
+        char *unb = (char *)malloc(unlen + 1);
+        if (!unb) { free(buf); return NULL; }
+        memcpy(unb, buf, uoff);
+        memcpy(unb + uoff, UINJ, ulen);
+        memcpy(unb + uoff + ulen, buf + uoff, (size_t)got - uoff);
+        unb[unlen] = 0;
+        free(buf);
+        g_patch_done = 1;
+        LOGI("source patched n=%d -> %zu at off=%zu mode=unity", got, unlen, uoff);
+        void *uns = fn_new_utf8(iso, unb, 0, (int)unlen);
+        free(unb);
+        if (!uns) LOGE("patch: NewFromUtf8 failed (unity)");
+        return uns;
+    }
+
 
     /*
      * 同时暴露配置单例 a：VIP 等级上限藏在 a.vipCfg.length 里，而

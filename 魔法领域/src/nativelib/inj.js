@@ -16,7 +16,47 @@ try {
   if (!G.__hmw12) {
     G.__hmw12 = 1;
 
+    // ===== HM UNITY INLINE =====
+    /*
+     * Unity 小游戏（别碰我的菜 / HarvestKing）的适配层。
+     * 架构与 Laya 完全不同：
+     *   Laya  —— 逻辑在 JS，能直接改 playerInfo
+     *   Unity —— 逻辑在 wasm，JS 层看不到数值单例，
+     *            唯一入口是**明文 JSON 存档**和 **wx 广告 API**
+     * 所以这三个模块与 Laya 探针并存，靠引擎判定互斥启用。
+     */
+    (function () {
+      var GG = (typeof globalThis !== 'undefined') ? globalThis : this;
+      // 引擎判定：Unity 适配层会挂 __hmUnity（native 层改写时设置）
+      var isUnity = 0;
+      try { if (GG.__hmUnity) isUnity = 1; } catch (e) {}
+      if (!isUnity) {
+        // 兜底：GameGlobal + __cmgeSubpackages 也是 Unity 小游戏特征
+        try {
+          if (GG.GameGlobal && GG.GameGlobal.__cmgeSubpackages &&
+              GG.GameGlobal.__cmgeSubpackages.length) isUnity = 1;
+        } catch (e) {}
+      }
+      if (!isUnity) return;
+
+      var mods = ['harvest.js', 'unity_ui.js', 'harvest_adapt.js'];
+      for (var i = 0; i < mods.length; i++) {
+        try {
+          if (typeof GG.__hmModules === 'undefined') GG.__hmModules = {};
+          if (GG.__hmModules[mods[i]]) continue;
+          GG.__hmModules[mods[i]] = 1;
+          // 模块源码在构建时内联到 G.__hmModuleSrc
+          var src = GG.__hmModuleSrc && GG.__hmModuleSrc[mods[i]];
+          if (src) (0, eval)(src);
+        } catch (e) {
+          try { GG.__hmUnityErr = (GG.__hmUnityErr || '') + mods[i] + ':' + e + ';'; } catch (e2) {}
+        }
+      }
+    })();
+    // ===== /HM UNITY INLINE =====
     // ===== HM COMMON INLINE =====
+    /* 本块由 build_common.py 自动生成，请改 nativelib/common.js */
+    /* content-sha1: db9c27adfd9b */
 /* =============================================================================
  * HM 通用脚本 —— 未适配小游戏的通用能力层
  * -----------------------------------------------------------------------------
@@ -44,6 +84,9 @@ try {
   if (!G) return;
   if (G.__hmCommon) return;      // 已加载
   G.__hmCommon = 1;
+  // native 层加载磁盘脚本时会校验内容里含 "__hmw"，作为「这确实是我们的
+  // 脚本」的标记，避免把写坏的文件喂给 V8。
+  G.__hmw = G.__hmw || 'common';
 
   /* ------------------------------------------------------------------ 工具 */
   function isObj(v) {
@@ -167,6 +210,22 @@ try {
     return null;
   }
 
+  /**
+   * Unity 小游戏（别碰我的菜）走的是另一套广告机制：
+   *   广告对象由 unity-sdk/ad.js 创建，游戏的 C# 通过 onClose 回调
+   *   得知「广告看完了」。通用层的简易替换把 onClose 做成空函数，
+   *   会让游戏永远等不到回调 —— 所以 Unity 模式下必须让位给
+   *   harvest.js 的专用实现（它会真的触发 onClose）。
+   */
+  function isUnityGame() {
+    try { if (G.__hmUnity) return 1; } catch (e) {}
+    try {
+      if (G.GameGlobal && G.GameGlobal.__cmgeSubpackages &&
+          G.GameGlobal.__cmgeSubpackages.length) return 1;
+    } catch (e) {}
+    return 0;
+  }
+
   /** 执行一次接管，返回接管到的入口数量 */
   function hookAds() {
     var n = 0;
@@ -175,6 +234,15 @@ try {
       n += patchAd(p, 'playVideo');
       n += patchAd(p, 'playVideo_pre');
       n += patchAd(p, 'playVideoAd');
+    }
+    if (isUnityGame()) {
+      // Unity：交给 harvest.js 的专用实现（会真的触发 onClose）
+      try {
+        if (typeof G.__hmHarvestHookAds === 'function') n += G.__hmHarvestHookAds();
+      } catch (e) {}
+      G.__hmAdOn = n > 0 ? 1 : 0;
+      G.__hmAdN = n;
+      return n;
     }
     n += scanAds(G, 2, []);
     G.__hmAdOn = n > 0 ? 1 : 0;
@@ -241,6 +309,7 @@ try {
 
 })(typeof globalThis !== 'undefined' ? globalThis : this);
     // ===== /HM COMMON INLINE =====
+
     var busy = 0;
     if (G.__hmCollapsed === undefined) G.__hmCollapsed = true;
 
