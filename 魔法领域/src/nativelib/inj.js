@@ -27,31 +27,68 @@ try {
      */
     (function () {
       var GG = (typeof globalThis !== 'undefined') ? globalThis : this;
-      // 引擎判定：Unity 适配层会挂 __hmUnity（native 层改写时设置）
-      var isUnity = 0;
-      try { if (GG.__hmUnity) isUnity = 1; } catch (e) {}
-      if (!isUnity) {
-        // 兜底：GameGlobal + __cmgeSubpackages 也是 Unity 小游戏特征
+
+      /*
+       * 引擎判定 —— 必须**延迟**，不能只判一次。
+       *
+       * 时序：native 层在改写 bundle 源码时插入了 `globalThis.__hmUnity=1`，
+       * 但那段代码要等 **bundle 执行**时才跑；
+       * 而 inj.js 是在 bundle **编译之后**就注入运行的 ——
+       * 那一刻 __hmUnity 还是 undefined。
+       *
+       * 所以这里持续轮询，直到认出 Unity 才加载模块。
+       * 判据有三条，任意一条成立即可：
+       *   1) __hmUnity        —— native 层改写 Unity bundle 时挂的标记
+       *   2) GameGlobal.__cmgeSubpackages —— Unity 适配层的子包列表
+       *   3) GameGlobal.unityNamespace   —— Unity 命名空间
+       */
+      function detectUnity() {
+        try { if (GG.__hmUnity) return 1; } catch (e) {}
         try {
-          if (GG.GameGlobal && GG.GameGlobal.__cmgeSubpackages &&
-              GG.GameGlobal.__cmgeSubpackages.length) isUnity = 1;
+          if (GG.GameGlobal) {
+            if (GG.GameGlobal.__cmgeSubpackages &&
+                GG.GameGlobal.__cmgeSubpackages.length) return 1;
+            if (GG.GameGlobal.unityNamespace) return 1;
+            if (GG.GameGlobal.manager) return 1;
+          }
         } catch (e) {}
+        // __hmBridge 是 native 层在 Unity bundle 里挂的桥接，
+        // 它只暴露 GameGlobal/wx/bl/canvas/document —— Laya 不会有
+        try {
+          if (typeof GG.__hmBridge === 'function') {
+            var b = GG.__hmBridge();
+            if (b && b.GameGlobal && b.GameGlobal.unityNamespace) return 1;
+          }
+        } catch (e) {}
+        return 0;
       }
-      if (!isUnity) return;
 
       var mods = ['harvest.js', 'unity_ui.js', 'harvest_adapt.js'];
-      for (var i = 0; i < mods.length; i++) {
-        try {
-          if (typeof GG.__hmModules === 'undefined') GG.__hmModules = {};
-          if (GG.__hmModules[mods[i]]) continue;
-          GG.__hmModules[mods[i]] = 1;
-          // 模块源码在构建时内联到 G.__hmModuleSrc
-          var src = GG.__hmModuleSrc && GG.__hmModuleSrc[mods[i]];
-          if (src) (0, eval)(src);
-        } catch (e) {
-          try { GG.__hmUnityErr = (GG.__hmUnityErr || '') + mods[i] + ':' + e + ';'; } catch (e2) {}
+      var tried = 0;
+
+      function tryLoad() {
+        if (tried) return;
+        if (!detectUnity()) return;      // 还没认出来，下一轮再试
+        tried = 1;
+        for (var i = 0; i < mods.length; i++) {
+          try {
+            if (typeof GG.__hmModules === 'undefined') GG.__hmModules = {};
+            if (GG.__hmModules[mods[i]]) continue;
+            GG.__hmModules[mods[i]] = 1;
+            // 模块源码在构建时内联到 G.__hmModuleSrc
+            var src = GG.__hmModuleSrc && GG.__hmModuleSrc[mods[i]];
+            if (src) (0, eval)(src);
+          } catch (e) {
+            try { GG.__hmUnityErr = (GG.__hmUnityErr || '') + mods[i] + ':' + e + ';'; } catch (e2) {}
+          }
         }
+        try { GG.__hmUnityLoaded = 1; } catch (e) {}
       }
+
+      // 轮询：bundle 执行得晚（Unity 要下载编译 wasm），所以要多试几轮
+      [0, 200, 600, 1200, 2500, 4000, 6000, 9000, 14000, 20000].forEach(function (ms) {
+        setTimeout(function () { try { tryLoad(); } catch (e) {} }, ms);
+      });
     })();
     // ===== /HM UNITY INLINE =====
     // ===== HM COMMON INLINE =====

@@ -118,7 +118,22 @@ eval(runtime);
 
 const HM = globalThis;
 
+/*
+ * 分发器现在是**延迟**判定（轮询等 Unity 特征出现），
+ * 所以这里必须等它加载完，不能同步往下跑。
+ */
+function waitForUnity(cb, timeoutMs) {
+  const t0 = Date.now();
+  (function poll() {
+    if (HM.__hmModules && HM.__hmModules['harvest.js']) return cb(true);
+    if (Date.now() - t0 > (timeoutMs || 8000)) return cb(false);
+    setTimeout(poll, 50);
+  })();
+}
+
+waitForUnity(function (loaded) {
 console.log('=== 1. Unity 引擎判定 ===');
+console.log('异步加载完成    :', loaded ? '是 ✓' : '否 ✗ (超时)');
 console.log('Unity 模块已加载  :', HM.__hmModules ? Object.keys(HM.__hmModules).join(', ') : '(无)');
 console.log('存档改写模块      :', HM.__hmHarvest ? '是 ✓' : '否 ✗');
 console.log('Unity 面板模块    :', HM.__hmUnityUI ? '是 ✓' : '否 ✗');
@@ -214,4 +229,5 @@ ad.show().then(() => {
 
     process.exit(0);
   }, 100);
+});
 });
