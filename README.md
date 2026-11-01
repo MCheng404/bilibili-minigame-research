@@ -29,7 +29,37 @@ BiliBiliweb/
 
 ---
 
-## 二、已收录
+## 二、目录与脚本的远程化
+
+App 不再把游戏列表写死在代码里 —— 它启动时从仓库根目录的 **`catalog.json`** 拉取，
+所以**新增小游戏只要改仓库，App 不用重新发布**。
+
+| 机制 | 说明 |
+|---|---|
+| `catalog.json` | 游戏目录：名称、引擎、状态、特性、脚本下载地址 |
+| `scripts/hm_inject.js` | 完整注入脚本（通用层 + 游戏适配层） |
+| `scripts/hm_common.js` | 通用脚本（未适配游戏的基础去广告） |
+
+App 侧的兜底链：**GitHub raw / jsDelivr / 代理**三个远端源并行请求取最先成功的那个，
+再退回 SharedPreferences 缓存，最后退回内置数据，离线也能用。
+
+### 脚本热更新
+
+native 层改成**运行时从磁盘读注入脚本**，不再只认编译进 `.so` 的那一份：
+
+```
+/data/data/tv.danmaku.bili/files/hm_inject.js          ← 首选
+/storage/emulated/0/Android/data/tv.danmaku.bili/files/hm_inject.js
+/data/local/tmp/hm_inject.js
+（以上都读不到时，才用编译期内嵌的兜底版本）
+```
+
+读到的文件必须含 `__hmw` 标记，否则当成坏文件跳过。
+所以更新脚本只要把新的 `hm_inject.js` 放到约定路径、重启游戏即可生效 ——
+**不用重编译 `.so`，也不用更新 App**。App 的游戏卡片里有「更新脚本」按钮，
+一键完成「下载 → 部署（走 su）→ 提示重启游戏」。
+
+## 三、已收录
 
 | 游戏 | 引擎 | 状态 | 入口 |
 |---|---|---|---|
@@ -37,7 +67,7 @@ BiliBiliweb/
 
 ---
 
-## 三、通用原理
+## 四、通用原理
 
 这一节的内容与具体游戏无关，是所有 B 站小游戏共用的部分。
 
@@ -201,7 +231,7 @@ a.hero_upCost.find(e => e.level == level).slice
 
 ---
 
-## 四、前置条件
+## 五、前置条件
 
 | 项目 | 要求 |
 |---|---|
@@ -214,7 +244,7 @@ a.hero_upCost.find(e => e.level == level).slice
 
 ---
 
-## 五、风险提示
+## 六、风险提示
 
 - 所有改动只作用于**本机运行内存**，重启游戏即恢复；只有主动调用游戏的存档上传
   接口才会写进服务端。
