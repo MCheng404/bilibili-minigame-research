@@ -58,6 +58,7 @@
   var hitRegions = [];
   var titleText = 'HM 修改器';
   var dragMode = 0, dragDX = 0, dragDY = 0;
+  var lastRect = null;        // 本次绘制覆盖的矩形（虚拟坐标），叠加时只贴这块
 
   /* ================================================================ canvas */
   var off = null, offCtx = null;
@@ -342,33 +343,63 @@
     return true;
   }
 
+  /* 保护：连续出错就永久关掉叠加，绝不把游戏画面搞黑 */
+  var overlayFails = 0;
+  function overlayDead() { return G.__hmOverlayOff || overlayFails >= 3; }
+
+  /**
+   * 把离屏 canvas 贴到上屏。
+   *
+   * 三条保命规则（踩过的坑）：
+   *   1. viewport / pixelStore 必须存取还原 —— 漏了 viewport，
+   *      Unity 之后按错误的视口渲染，整屏直接黑掉。
+   *   2. 只画面板那一小块矩形，不要全屏四边形 —— 万一混合有问题，
+   *      影响范围也只在面板那点地方。
+   *   3. canvas 上传的纹理是**预乘 alpha**，混合要用 ONE / ONE_MINUS_SRC_ALPHA。
+   */
   function drawOverlay() {
-    if (!off || !glReady || !gl) return;
+    if (!off || !glReady || !gl || overlayDead()) return;
+    var rect = lastRect;
+    if (!rect || rect.w <= 0 || rect.h <= 0) return;
+
+    var W = mainCanvas.width, H = mainCanvas.height;
+    if (!W || !H) return;
+
+    var old = null;
     try {
-      var W = mainCanvas.width, H = mainCanvas.height;
+      old = {
+        prog: gl.getParameter(gl.CURRENT_PROGRAM),
+        tex: gl.getParameter(gl.TEXTURE_BINDING_2D),
+        active: gl.getParameter(gl.ACTIVE_TEXTURE),
+        buf: gl.getParameter(gl.ARRAY_BUFFER_BINDING),
+        blend: gl.isEnabled(gl.BLEND),
+        srgb: gl.getParameter(gl.BLEND_SRC_RGB),
+        drgb: gl.getParameter(gl.BLEND_DST_RGB),
+        sa: gl.getParameter(gl.BLEND_SRC_ALPHA),
+        da: gl.getParameter(gl.BLEND_DST_ALPHA),
+        vp: gl.getParameter(gl.VIEWPORT),
+        flip: gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL),
+        pre: gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL)
+      };
+    } catch (e) {}
 
-      // 保存 Unity 的 GL 状态（缺 API 也不能挡住绘制本身）
-      var old = {};
-      try {
-        old.prog = gl.getParameter(gl.CURRENT_PROGRAM);
-        old.tex = gl.getParameter(gl.TEXTURE_BINDING_2D);
-        old.active = gl.getParameter(gl.ACTIVE_TEXTURE);
-        old.buf = gl.getParameter(gl.ARRAY_BUFFER_BINDING);
-        old.blend = gl.isEnabled(gl.BLEND);
-        old.srgb = gl.getParameter(gl.BLEND_SRC_RGB);
-        old.drgb = gl.getParameter(gl.BLEND_DST_RGB);
-        old.sa = gl.getParameter(gl.BLEND_SRC_ALPHA);
-        old.da = gl.getParameter(gl.BLEND_DST_ALPHA);
-      } catch (e) {}
+    // 虚拟坐标 -> NDC
+    var x0 = (rect.x / VW) * 2 - 1;
+    var x1 = ((rect.x + rect.w) / VW) * 2 - 1;
+    var y0 = 1 - ((rect.y + rect.h) / VH) * 2;
+    var y1 = 1 - (rect.y / VH) * 2;
+    // 对应 uv（离屏 canvas 原点左上）
+    var u0 = rect.x / VW, u1 = (rect.x + rect.w) / VW;
+    var v0 = rect.y / VH, v1 = (rect.y + rect.h) / VH;
 
+    try {
       gl.useProgram(glProg);
       gl.bindBuffer(gl.ARRAY_BUFFER, glBuf);
-      // 全屏四边形：pos(-1..1) + uv(0..1)，v 翻转（canvas 原点在左上）
       var data = new Float32Array([
-        -1, 1, 0, 0,
-         1, 1, 1, 0,
-        -1, -1, 0, 1,
-         1, -1, 1, 1
+        x0, y1, u0, v0,
+        x1, y1, u1, v0,
+        x0, y0, u0, v1,
+        x1, y0, u1, v1
       ]);
       gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
       gl.enableVertexAttribArray(glLoc.aPos);
@@ -379,7 +410,7 @@
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, glTex);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -387,12 +418,16 @@
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, off);
 
       gl.enable(gl.BLEND);
-      gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      gl.viewport(0, 0, W, H);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       gl.uniform1i(glLoc.uTex, 0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    } catch (e) {
+      overlayFails++;
+      try { G.__hmUnityGLErr = String(e); } catch (e2) {}
+    }
 
-      // 还原
+    // 还原（即使上面抛了也要还原，否则 Unity 下一帧就废了）
+    if (old) {
       try {
         gl.bindTexture(gl.TEXTURE_2D, old.tex);
         gl.activeTexture(old.active);
@@ -400,26 +435,38 @@
         gl.useProgram(old.prog);
         gl.blendFuncSeparate(old.srgb, old.drgb, old.sa, old.da);
         if (!old.blend) gl.disable(gl.BLEND);
+        if (old.vp) gl.viewport(old.vp[0], old.vp[1], old.vp[2], old.vp[3]);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, old.flip ? 1 : 0);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, old.pre ? 1 : 0);
       } catch (e) {}
-    } catch (e) {
-      try { G.__hmUnityGLErr = String(e); } catch (e2) {}
     }
   }
 
   /* ================================================================ 帧循环 */
   function frame() {
     try {
+      if (overlayDead()) return;
       if (!ensureCanvas()) return;
       if (dirty) {
         offCtx.clearRect(0, 0, VW, VH);
         clearHits();
         if (collapsed) {
           drawFloat(offCtx);
+          lastRect = { x: btnX - btnR - 6, y: btnY - btnR - 6, w: btnR * 2 + 12, h: btnR * 2 + 12 };
         } else {
           drawPanel(offCtx);
           drawFloat(offCtx);
+          lastRect = {
+            x: Math.min(panelX, btnX - btnR) - 8,
+            y: Math.min(panelY, btnY - btnR) - 8,
+            w: Math.max(panelX + panelW, btnX + btnR) - Math.min(panelX, btnX - btnR) + 16,
+            h: Math.max(panelY + panelH, btnY + btnR) - Math.min(panelY, btnY - btnR) + 16
+          };
         }
-        if (stepOpen) drawStepper(offCtx);
+        if (stepOpen) {
+          drawStepper(offCtx);
+          lastRect = { x: 0, y: 0, w: VW, h: VH };
+        }
         dirty = false;
       }
       if (!initGL()) return;
@@ -430,27 +477,34 @@
   }
 
   function installFrameHook() {
-    var raf = G.requestAnimationFrame || (G.wx && G.wx.requestAnimationFrame);
-    if (raf && !raf.__hmWrapped) {
-      var orig = raf;
+    /*
+     * rAF 包装是唯一能在 Unity 画完之后补画的时机，
+     * 但也是最容易把游戏整黑的地方 —— 所以：
+     *   - 只包一层，原样返回 handle（cancelAnimationFrame 才对得上）
+     *   - 里面任何异常都吞掉，绝不能影响 Unity 自己的回调
+     *   - 万一出事，G.__hmOverlayOff = 1 可一键关闭
+     */
+    var orig = G.requestAnimationFrame;
+    if (typeof orig === 'function' && !orig.__hmWrapped) {
       var wrapped = function (cb) {
         return orig.call(G, function (ts) {
-          try { if (cb) cb(ts); } catch (e) {}
-          frame();
+          var r;
+          try { r = cb ? cb(ts) : undefined; } catch (e) {}
+          try { frame(); } catch (e) {}
+          return r;
         });
       };
       wrapped.__hmWrapped = 1;
       wrapped.__hmOrig = orig;
       try { G.requestAnimationFrame = wrapped; } catch (e) {}
-      try { if (G.wx) G.wx.requestAnimationFrame = wrapped; } catch (e) {}
     }
-    // 兜底：setInterval 兜住 rAF 没被调用的场景（面板展开时）
+    // 兜底：面板展开期间用定时器补帧
     if (!G.__hmUnityFrameTimer) {
       G.__hmUnityFrameTimer = setInterval(function () {
+        if (overlayDead()) return;
         if (!collapsed) { dirty = true; frame(); }
-      }, 120);
+      }, 150);
     }
-    // 首帧立刻画一次
     dirty = true;
     setTimeout(frame, 60);
   }

@@ -62,14 +62,14 @@ function makeGL(rec) {
     createProgram: () => ({}), attachShader() {}, linkProgram() {},
     createBuffer: () => ({}), createTexture: () => ({}),
     getAttribLocation: () => 0, getUniformLocation: () => ({}),
-    getParameter: () => null, isEnabled: () => true,
+    getParameter: () => new Int32Array([0, 0, 750, 1334]), isEnabled: () => true,
     isEnabledVertexAttribArray: () => true,
     useProgram() { rec.push('gl.useProgram'); },
     bindBuffer() {}, bufferData() {}, enableVertexAttribArray() {},
     vertexAttribPointer() {}, disableVertexAttribArray() {},
     activeTexture() {}, bindTexture() {}, pixelStorei() {},
     texParameteri() {}, texImage2D() { rec.push('gl.texImage2D'); },
-    enable() {}, disable() {}, blendFuncSeparate() {},
+    enable() {}, disable() {}, blendFunc() {}, blendFuncSeparate() {},
     viewport() {}, uniform1i() {},
     drawArrays() { rec.push('gl.drawArrays'); }
   };
