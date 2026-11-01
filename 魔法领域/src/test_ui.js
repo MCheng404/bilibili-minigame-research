@@ -48,13 +48,15 @@ class LInput extends LSprite {
 class LPanel extends LSprite {
   constructor() { super(); this.vScrollBarSkin = ''; }
 }
-globalThis.Laya = { stage, Sprite: LSprite, Text: LText, TextInput: LInput, Panel: LPanel };
+globalThis.Laya = { stage, Sprite: LSprite, Text: LText, TextInput: LInput, Panel: LPanel, timer: { scale: 1 } };
 globalThis.__hmg = g;
 globalThis.__hma = {
   vipCfg: Array.from({ length: 11 }, (_, i) => ({ vipLv: i })),
   roleUpgradeCfg: Array.from({ length: 30 }, (_, i) => ({ lv: i + 1 })),
   hero_upCost: Array.from({ length: 60 }, (_, i) => ({ level: i + 1 })),
-  powerCfg: { max: 120, consume: 6, value: 1, cd: 5 }
+  powerCfg: { max: 120, consume: 6, value: 1, cd: 5 },
+  gameSpeed_normal: 1.31,
+  gameSpeed_double: 1.62
 };
 // 战斗数据
 g.playerInfo.battleSave = {
@@ -108,6 +110,10 @@ setTimeout(() => {
   console.log('hero    = atk', P.battleSave.heroSaveInfo.atk, 'mp', P.battleSave.heroSaveInfo.mp_now + '/' + P.battleSave.heroSaveInfo.mp_max);
   console.log('ally    = life_now', A.life_now, '/', A.life_max, '| life_per', A.life_per, '| roleNum', A.roleNum);
   console.log('foe     = life_now', F.life_now, '/', F.life_max, '| life_per', F.life_per, '(应保持 100 不变)');
+  console.log('--- 倍速 ---');
+  globalThis.__hmApplySpeed();
+  console.log('speed   =', globalThis.__hma.gameSpeed_normal, '/', globalThis.__hma.gameSpeed_double, '| Laya.timer.scale =', globalThis.Laya.timer.scale);
+  console.log('spdFlag =', g.playerInfo.setting_doubleSpd);
   console.log('heroUnlock =', P.outHeroList.filter(x => x.isUnlock).length, '/', P.outHeroList.length);
   console.log('godExp  =', P.godExp, '| devilProp =', P.devilProp, '| pvpScore =', P.pvpScore);
   console.log('vip =', P.vipLv, '| wood =', P.woodNum, '| stone =', P.stoneNum);
